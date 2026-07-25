@@ -1,0 +1,265 @@
+/* DSMT application layout. Built on assets/css/nocturne.css — the design
+   system is vendored and must not be edited here; add DSMT-specific rules
+   only, and reuse the system's tokens rather than hardcoding values. */
+
+/* Status colours. Nocturne ships no success/warning/danger role, but a
+   setup wizard has to tell "connected" from "certificate rejected" at a
+   glance. Tuned to sit at the accent's lightness so they read as part of
+   the same system on the #161826 ground rather than as browser defaults. */
+:root {
+  --color-success: #6fc48f;
+  --color-warning: #e0b341;
+  --color-danger: #e0757a;
+}
+
+/* ── demo-mode banner ───────────────────────────────────────────────────
+   Deliberately loud. Whenever the app is serving fixtures instead of real
+   directory data this must be impossible to miss — a quiet badge is how
+   fake data gets mistaken for a live system. */
+.demo-banner {
+  position: sticky; top: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: center; gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+  color: #161826;
+  background: repeating-linear-gradient(
+    45deg, #e0b341, #e0b341 12px, #c99a2e 12px, #c99a2e 24px);
+}
+.demo-banner__note { font-weight: 400; letter-spacing: 0; text-transform: none; }
+
+/* ── page shell ─────────────────────────────────────────────────────── */
+.page {
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+  background: var(--color-bg);
+}
+.page__body {
+  flex: 1; width: 100%; max-width: 1100px;
+  margin: 0 auto; padding: var(--space-8) var(--space-4);
+}
+.page__footer {
+  padding: var(--space-4);
+  font-size: 12.5px; text-align: center;
+  color: color-mix(in srgb, var(--color-text) 45%, transparent);
+}
+
+.topbar {
+  display: flex; align-items: center; gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-divider);
+}
+.topbar__brand {
+  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
+  font-size: 18px; letter-spacing: -0.01em; margin-right: auto;
+}
+.topbar__version {
+  font-size: 11px;
+  color: color-mix(in srgb, var(--color-text) 45%, transparent);
+}
+
+/* ── brand lockup ───────────────────────────────────────────────────────
+   The handoff sets the wordmark at a fixed 140px, which overflows below
+   ~360px. clamp() keeps the design's size on desktop and lets it shrink
+   on small screens. */
+.brand { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); }
+.brand__mark {
+  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
+  font-size: clamp(64px, 20vw, 140px); line-height: 1;
+  color: var(--color-text); letter-spacing: -0.01em;
+}
+.brand__sub {
+  font-size: 13px; text-align: center;
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+}
+
+/* ── login page (index.html) ────────────────────────────────────────── */
+.login {
+  min-height: 100vh; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: var(--space-8); padding: var(--space-8) var(--space-4);
+  background: var(--color-bg);
+}
+.login__card {
+  width: 100%; max-width: 360px;
+  display: flex; flex-direction: column; gap: var(--space-6);
+}
+.login__heading { display: flex; flex-direction: column; gap: var(--space-1); text-align: center; }
+.login__heading h1 { font-size: 26px; line-height: 1.25; }
+.login__heading p {
+  margin: 0; font-size: 14px; line-height: 1.5;
+  color: color-mix(in srgb, var(--color-text) 65%, transparent);
+}
+.login__form { display: flex; flex-direction: column; gap: var(--space-4); }
+.login__panel { display: flex; flex-direction: column; gap: var(--space-4); }
+.login__panel[hidden] { display: none; }
+.login__forgot { display: flex; justify-content: flex-end; }
+.login__forgot a { font-size: 13px; }
+.login__note {
+  margin: 0; font-size: 12.5px; line-height: 1.6;
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+.login__footnote {
+  margin: 0; font-size: 13px; text-align: center;
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+
+/* ── wizard ─────────────────────────────────────────────────────────── */
+.wizard { width: 100%; max-width: 640px; margin: 0 auto; }
+.wizard__head { text-align: center; margin-bottom: var(--space-8); }
+
+.steps {
+  display: flex; align-items: center; gap: var(--space-2);
+  margin-bottom: var(--space-8); padding: 0; list-style: none;
+}
+.step {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px;
+  font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 45%, transparent);
+  text-align: center;
+}
+.step__dot {
+  display: grid; place-items: center;
+  width: 26px; height: 26px; border-radius: 50%;
+  border: 1.5px solid var(--color-divider);
+  font-size: 12px; letter-spacing: 0; text-transform: none;
+}
+.step[data-state='active'] { color: var(--color-accent); }
+.step[data-state='active'] .step__dot { border-color: var(--color-accent); color: var(--color-accent); }
+.step[data-state='done'] { color: color-mix(in srgb, var(--color-text) 70%, transparent); }
+.step[data-state='done'] .step__dot {
+  border-color: var(--color-accent); background: var(--color-accent); color: var(--color-bg);
+}
+
+.wizard__panel { display: flex; flex-direction: column; gap: var(--space-6); }
+.wizard__panel[hidden] { display: none; }
+.wizard__actions {
+  display: flex; justify-content: space-between; gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+.wizard__actions .spacer { margin-right: auto; }
+
+.field-row { display: flex; gap: var(--space-4); flex-wrap: wrap; }
+.field-row > .field { flex: 1; min-width: 180px; }
+.fieldset {
+  display: flex; flex-direction: column; gap: var(--space-4);
+  margin: 0; padding: var(--space-4); border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md);
+}
+.fieldset > legend {
+  padding: 0 var(--space-2); font-size: 11px;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+}
+
+.check { display: inline-flex; align-items: flex-start; gap: 8px; cursor: pointer; font-size: 14px; }
+.check input { margin-top: 3px; accent-color: var(--color-accent); }
+.check__hint {
+  display: block; font-size: 12px; line-height: 1.5;
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+
+/* ── inline field errors ────────────────────────────────────────────── */
+.field__error { display: none; margin-top: 4px; font-size: 12px; color: var(--color-danger); }
+.field[data-invalid] .field__error { display: block; }
+.field[data-invalid] .input { border-color: var(--color-danger); }
+
+/* ── result / status regions ───────────────────────────────────────────
+   Every async action reports into one of these. Success and each distinct
+   failure cause get their own message — a generic "connection failed" is
+   what turns one support call into three. */
+.result {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: var(--space-3); border-radius: var(--radius-md);
+  font-size: 13px; line-height: 1.5;
+  border: 1px solid var(--color-divider); background: var(--color-surface);
+}
+.result[hidden] { display: none; }
+.result__title { font-weight: 600; }
+.result__detail { color: color-mix(in srgb, var(--color-text) 70%, transparent); }
+.result__hint { color: color-mix(in srgb, var(--color-text) 55%, transparent); font-size: 12.5px; }
+.result[data-kind='ok'] { border-color: var(--color-success); }
+.result[data-kind='ok'] .result__title { color: var(--color-success); }
+.result[data-kind='error'] { border-color: var(--color-danger); }
+.result[data-kind='error'] .result__title { color: var(--color-danger); }
+.result[data-kind='warn'] { border-color: var(--color-warning); }
+.result[data-kind='warn'] .result__title { color: var(--color-warning); }
+
+/* ── busy state ─────────────────────────────────────────────────────── */
+.spinner {
+  width: 13px; height: 13px; flex: none;
+  border: 2px solid currentColor; border-right-color: transparent;
+  border-radius: 50%; animation: spin 0.6s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2s; } }
+.btn[aria-busy='true'] { opacity: 0.7; pointer-events: none; }
+
+/* ── data views ─────────────────────────────────────────────────────── */
+.toolbar {
+  display: flex; align-items: flex-end; gap: var(--space-4);
+  flex-wrap: wrap; margin-bottom: var(--space-4);
+}
+.toolbar__search { flex: 1; min-width: 220px; }
+.toolbar__count {
+  font-size: 12.5px;
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+
+.table-wrap { overflow-x: auto; }
+.table td.actions { text-align: right; white-space: nowrap; }
+.row-btn {
+  background: none; border: 0; padding: 0; cursor: pointer; font: inherit;
+  color: var(--color-accent-300); text-align: left;
+}
+.row-btn:hover { color: var(--color-accent); text-decoration: underline; }
+
+/* State blocks. A view must never render a bare empty table — "no results"
+   and "the request failed" have to be distinguishable at a glance. */
+.state {
+  display: flex; flex-direction: column; align-items: center; gap: var(--space-2);
+  padding: var(--space-8) var(--space-4); text-align: center;
+  font-size: 14px;
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+}
+.state[hidden] { display: none; }
+.state__title { font-size: 15px; color: var(--color-text); }
+.state--error .state__title { color: var(--color-danger); }
+
+.pager {
+  display: flex; align-items: center; justify-content: flex-end;
+  gap: var(--space-3); margin-top: var(--space-4); font-size: 13px;
+}
+
+/* ── user detail dialog ─────────────────────────────────────────────── */
+.dialog--wide { width: min(680px, 100%); max-height: 88vh; overflow-y: auto; }
+.dialog__head { display: flex; align-items: flex-start; gap: var(--space-3); }
+.dialog__head .dialog-title { margin-right: auto; }
+
+.deflist {
+  display: grid; grid-template-columns: minmax(120px, auto) 1fr;
+  gap: var(--space-2) var(--space-4); margin: 0; font-size: 13.5px;
+}
+.deflist dt { color: color-mix(in srgb, var(--color-text) 55%, transparent); }
+.deflist dd { margin: 0; overflow-wrap: anywhere; }
+
+.tag-row { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+
+.group-list { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.group-item {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-divider); border-radius: var(--radius-md);
+}
+.group-item__name { font-size: 13.5px; }
+.group-item__path {
+  font-size: 11.5px; overflow-wrap: anywhere;
+  color: color-mix(in srgb, var(--color-text) 50%, transparent);
+}
+
+@media (max-width: 560px) {
+  .deflist { grid-template-columns: 1fr; gap: 2px var(--space-4); }
+  .deflist dd { margin-bottom: var(--space-2); }
+  .step__label { display: none; }
+  .wizard__actions { flex-direction: column-reverse; }
+  .wizard__actions .btn { width: 100%; }
+}

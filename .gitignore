@@ -1,0 +1,8 @@
+node_modules/
+
+# Bootstrap config and the encryption key are per-deployment secrets.
+server/data/bootstrap.json
+server/data/*.key
+
+*.log
+.DS_Store

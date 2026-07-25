@@ -1,0 +1,23 @@
+{
+  "name": "dsmt",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DSMT — Directory Service Management Tool",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "demo": "DSMT_MODE=demo node server/index.js",
+    "test": "node --test server/lib/"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "express-session": "^1.18.1",
+    "helmet": "^8.0.0",
+    "ldapjs": "^3.0.7",
+    "mssql": "^11.0.1"
+  }
+}
