@@ -20,6 +20,16 @@ DSMT (Directory Service Management Tool) is a web-based front end, currently a s
 - Changing `index.html`, `styles.css`, or `app.js` only requires a browser refresh — no restart/rebuild needed.
 - State exactly which file(s) changed when shipping a fix, so it can be verified against the specific file.
 
+### Deliverable packaging (always)
+Whenever files are produced for the user, all three of these are required — no exceptions:
+1. **Package as ZIP**, named `DSMT-<tool-name>-v<version>.zip`, where `<version>` is read from the
+   top-level `VERSION` file (currently `1.0.0`). Bump: patch for a fix, minor for a new capability.
+2. **Provide a download link** — send the ZIP with `SendUserFile`, and also link the files on the
+   pushed branch in GitHub.
+3. **Write run instructions** — the exact command to launch the tool, its parameters/switches, and
+   any prerequisite setup (config file to copy, environment variables/tokens to set). Include them
+   both in the reply and in the tool's own `README.md` inside the ZIP.
+
 ---
 
 ## Recurring root causes
