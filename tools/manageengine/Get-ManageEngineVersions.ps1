@@ -32,6 +32,9 @@
 
 .EXAMPLE
     .\Get-ManageEngineVersions.ps1 -ConfigPath .\prod.json -OutputPath C:\Reports\me.html
+
+.NOTES
+    Tool version: 1.0.0
 #>
 [CmdletBinding()]
 param(
