@@ -4,72 +4,75 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>DSMT — Sign in</title>
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="assets/css/nocturne.css">
+<link rel="stylesheet" href="assets/css/app.css">
 </head>
 <body>
-<div class="login-page">
-  <div class="login-page__center">
-    <div class="login-card">
 
-      <div class="login-brand">
-        <span class="login-brand__mark">DSMT</span>
-        <span class="login-brand__subtitle text-muted-60">Directory Service Management Tool</span>
-      </div>
+<!-- The sign-in page from the design handoff. Not wired to an API yet:
+     authentication is the next increment, and until it lands the server
+     binds loopback only. See PROGRESS.md. -->
+<div class="login">
+  <div class="login__card">
 
-      <div class="login-heading">
-        <h1>Sign in to your account</h1>
-        <p class="text-muted-65">Welcome back — enter your details to continue</p>
-      </div>
-
-      <div class="field">
-        <label id="mode-label">Sign-in method</label>
-        <div class="seg" role="radiogroup" aria-labelledby="mode-label">
-          <label class="seg-opt"><input type="radio" name="mode" value="standard" checked>Standard</label>
-          <label class="seg-opt"><input type="radio" name="mode" value="sso">Enterprise SSO</label>
-        </div>
-      </div>
-
-      <form id="login-form" class="login-form">
-
-        <div id="panel-standard" class="login-form__panel">
-          <div class="field">
-            <label for="identifier">Email or username</label>
-            <input class="input" id="identifier" type="text" placeholder="you@company.com" autocomplete="username">
-          </div>
-          <div class="field">
-            <label for="password">Password</label>
-            <input class="input" id="password" type="password" placeholder="••••••••" autocomplete="current-password">
-          </div>
-          <div class="login-forgot">
-            <a href="#">Forgot password?</a>
-          </div>
-          <button type="submit" class="btn btn-primary btn-block">
-            Sign in
-            <svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"/></svg>
-          </button>
-        </div>
-
-        <div id="panel-sso" class="login-form__panel" hidden>
-          <div class="field">
-            <label for="domain">Organization domain</label>
-            <input class="input" id="domain" type="text" placeholder="company.com">
-          </div>
-          <p class="login-sso-hint text-muted-55">You'll be redirected to your organization's identity provider (SSO / LDAP) to finish signing in.</p>
-          <button type="submit" class="btn btn-primary btn-block">
-            Continue with SSO
-            <svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"/></svg>
-          </button>
-        </div>
-
-      </form>
-
-      <p class="login-footnote text-muted-55">Don't have access? <a href="#">Contact your administrator</a></p>
+    <div class="brand">
+      <span class="brand__mark">DSMT</span>
+      <span class="brand__sub">Directory Service Management Tool</span>
     </div>
 
-    <p class="login-copyright text-muted-45">© 2026 DSMT. All rights reserved.</p>
+    <div class="login__heading">
+      <h1>Sign in to your account</h1>
+      <p>Welcome back — enter your details to continue</p>
+    </div>
+
+    <div class="field">
+      <label id="mode-label">Sign-in method</label>
+      <div class="seg" role="radiogroup" aria-labelledby="mode-label">
+        <label class="seg-opt"><input type="radio" name="mode" value="standard" checked>Standard</label>
+        <label class="seg-opt"><input type="radio" name="mode" value="sso">Enterprise SSO</label>
+      </div>
+    </div>
+
+    <form id="login-form" class="login__form" novalidate>
+
+      <div id="panel-standard" class="login__panel">
+        <div class="field">
+          <label for="identifier">Email or username</label>
+          <input class="input" id="identifier" type="text" placeholder="you@company.com" autocomplete="username">
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input class="input" id="password" type="password" placeholder="••••••••" autocomplete="current-password">
+        </div>
+        <div class="login__forgot">
+          <a href="#">Forgot password?</a>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">
+          Sign in
+          <svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"/></svg>
+        </button>
+      </div>
+
+      <div id="panel-sso" class="login__panel" hidden>
+        <div class="field">
+          <label for="domain">Organization domain</label>
+          <input class="input" id="domain" type="text" placeholder="company.com">
+        </div>
+        <p class="login__note">You'll be redirected to your organization's identity provider (SSO / LDAP) to finish signing in.</p>
+        <button type="submit" class="btn btn-primary btn-block">
+          Continue with SSO
+          <svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"/></svg>
+        </button>
+      </div>
+
+    </form>
+
+    <p class="login__footnote">Don't have access? <a href="#">Contact your administrator</a></p>
   </div>
+
+  <p class="page__footer">© 2026 DSMT. All rights reserved.</p>
 </div>
 
-<script src="app.js"></script>
+<script type="module" src="assets/js/login.js"></script>
 </body>
 </html>

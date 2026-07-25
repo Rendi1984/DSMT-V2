@@ -16,10 +16,6 @@ export const DATA_DIR = join(HERE, '..', 'data');
 export const BOOTSTRAP_PATH = join(DATA_DIR, 'bootstrap.json');
 export const KEY_PATH = join(DATA_DIR, 'dsmt.key');
 
-/** 'demo' serves fixtures; 'live' talks to real servers and never falls back. */
-export const MODE = process.env.DSMT_MODE === 'demo' ? 'demo' : 'live';
-export const isDemo = () => MODE === 'demo';
-
 let key = null;
 export function secretKey() {
   if (!key) key = loadOrCreateKey(KEY_PATH);
@@ -52,26 +48,18 @@ export function readSqlSettings() {
   return { ...boot.sql, password: decryptSecret(boot.sql.password, secretKey()) };
 }
 
-/** In demo mode setup is never "complete" until the wizard is walked, so the
-    wizard can be exercised end to end; the flag lives in memory only. */
-let demoSetupComplete = false;
-export const markDemoSetupComplete = () => { demoSetupComplete = true; };
-export const isDemoSetupComplete = () => demoSetupComplete;
-
 /* ── database-backed config ──────────────────────────────────────────── */
 
 /** Has setup been completed? */
 export async function getSetupStatus() {
-  if (isDemo()) return { complete: demoSetupComplete, mode: MODE };
-
   const sqlSettings = readSqlSettings();
-  if (!sqlSettings) return { complete: false, mode: MODE };
+  if (!sqlSettings) return { complete: false };
 
   try {
     const pool = await connect(sqlSettings, sqlSettings.database);
     try {
       const flag = await getSetting(pool, 'setup_complete');
-      return { complete: flag === 'true', mode: MODE, database: sqlSettings.database };
+      return { complete: flag === 'true', database: sqlSettings.database };
     } finally {
       await pool.close().catch(() => {});
     }
@@ -81,7 +69,6 @@ export async function getSetupStatus() {
     // over a working database is not the fix for an unreachable one.
     return {
       complete: false,
-      mode: MODE,
       unreachable: true,
       error: { code: err.code, message: err.message, detail: err.detail, hint: err.hint },
     };

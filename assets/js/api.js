@@ -1,5 +1,5 @@
-/* Thin fetch wrapper. Every call funnels through here so error shape,
-   demo-mode reporting and JSON handling stay consistent across pages. */
+/* Thin fetch wrapper. Every call funnels through here so error shape and
+   JSON handling stay consistent across pages. */
 
 /** Error carrying the server's machine-readable code plus its human copy. */
 export class ApiError extends Error {
@@ -11,24 +11,6 @@ export class ApiError extends Error {
     this.hint = hint || '';
     this.status = status || 0;
   }
-}
-
-/** Last `mode` reported by the server ('live' | 'demo'), or null before any call. */
-export let serverMode = null;
-
-const listeners = new Set();
-
-/** Subscribe to mode changes so the demo banner can react to the first response. */
-export function onModeChange(fn) {
-  listeners.add(fn);
-  if (serverMode) fn(serverMode);
-  return () => listeners.delete(fn);
-}
-
-function setMode(mode) {
-  if (!mode || mode === serverMode) return;
-  serverMode = mode;
-  for (const fn of listeners) fn(mode);
 }
 
 async function request(method, path, body) {
@@ -52,8 +34,6 @@ async function request(method, path, body) {
 
   const isJson = (res.headers.get('content-type') || '').includes('application/json');
   const payload = isJson ? await res.json().catch(() => null) : null;
-
-  if (payload && payload.mode) setMode(payload.mode);
 
   if (!res.ok) {
     const err = (payload && payload.error) || {};

@@ -12,21 +12,6 @@
   --color-danger: #e0757a;
 }
 
-/* ── demo-mode banner ───────────────────────────────────────────────────
-   Deliberately loud. Whenever the app is serving fixtures instead of real
-   directory data this must be impossible to miss — a quiet badge is how
-   fake data gets mistaken for a live system. */
-.demo-banner {
-  position: sticky; top: 0; z-index: 50;
-  display: flex; align-items: center; justify-content: center; gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-  font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
-  color: #161826;
-  background: repeating-linear-gradient(
-    45deg, #e0b341, #e0b341 12px, #c99a2e 12px, #c99a2e 24px);
-}
-.demo-banner__note { font-weight: 400; letter-spacing: 0; text-transform: none; }
-
 /* ── page shell ─────────────────────────────────────────────────────── */
 .page {
   min-height: 100vh;
@@ -140,6 +125,9 @@
 
 .field-row { display: flex; gap: var(--space-4); flex-wrap: wrap; }
 .field-row > .field { flex: 1; min-width: 180px; }
+/* A host-and-port pair: the hostname needs the room, the port never does. */
+.field-row > .field--grow { flex: 3; }
+.field-row > .field--narrow { flex: 1; min-width: 96px; }
 .fieldset {
   display: flex; flex-direction: column; gap: var(--space-4);
   margin: 0; padding: var(--space-4); border: 1px solid var(--color-divider);
@@ -153,6 +141,7 @@
 
 .check { display: inline-flex; align-items: flex-start; gap: 8px; cursor: pointer; font-size: 14px; }
 .check input { margin-top: 3px; accent-color: var(--color-accent); }
+.check--spaced { margin-bottom: var(--space-4); }
 .check__hint {
   display: block; font-size: 12px; line-height: 1.5;
   color: color-mix(in srgb, var(--color-text) 55%, transparent);

@@ -11,7 +11,6 @@ import rateLimit from 'express-rate-limit';
 import { setupRouter } from './routes/setup.js';
 import { usersRouter } from './routes/users.js';
 import { ok } from './routes/helpers.js';
-import { MODE, isDemo } from './lib/state.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
@@ -60,7 +59,6 @@ app.use('/api/setup', rateLimit({
   legacyHeaders: false,
   message: {
     ok: false,
-    mode: MODE,
     error: {
       code: 'rate_limited',
       message: 'Too many attempts',
@@ -78,7 +76,6 @@ app.use('/api/users', usersRouter);
 app.use('/api', (req, res) => {
   res.status(404).json({
     ok: false,
-    mode: MODE,
     error: { code: 'not_found', message: `No such endpoint: ${req.method} ${req.originalUrl}` },
   });
 });
@@ -101,10 +98,7 @@ app.get('/', async (req, res) => {
 });
 
 app.listen(PORT, HOST, () => {
-  console.log(`DSMT v${version} listening on http://${HOST}:${PORT}  (mode: ${MODE})`);
-  if (isDemo()) {
-    console.log('  DEMO MODE — serving sample data. Not connected to any real directory or database.');
-  }
+  console.log(`DSMT v${version} listening on http://${HOST}:${PORT}`);
   if (HOST !== '127.0.0.1' && HOST !== 'localhost') {
     console.warn(`  WARNING: bound to ${HOST}. Sign-in is not implemented yet, so this exposes`);
     console.warn('  an unauthenticated directory browser. Keep it on loopback until auth ships.');

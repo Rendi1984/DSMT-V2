@@ -1,7 +1,7 @@
-/* Shared page furniture: the demo banner, the version label, the setup
-   guard, and the small DOM helpers every page needs. */
+/* Shared page furniture: the version label, the setup guard, busy and
+   result rendering, and the small DOM helpers every page needs. */
 
-import { api, onModeChange } from './api.js';
+import { api } from './api.js';
 
 /* ── DOM helpers ─────────────────────────────────────────────────────── */
 
@@ -24,30 +24,6 @@ export function el(tag, attrs = {}, children = []) {
     node.append(typeof child === 'string' ? document.createTextNode(child) : child);
   }
   return node;
-}
-
-/* ── demo banner ──────────────────────────────────────────────────────
-   Rendered the moment any response reports demo mode. This is intentionally
-   hard to ignore: the whole failure mode it guards against is fixture data
-   being mistaken for a live directory. */
-
-export function mountDemoBanner() {
-  let banner = null;
-  onModeChange((mode) => {
-    if (mode === 'demo' && !banner) {
-      banner = el('div', { class: 'demo-banner', role: 'status' }, [
-        'Demo mode',
-        el('span', {
-          class: 'demo-banner__note',
-          text: '— sample data. Not connected to a real directory or database.',
-        }),
-      ]);
-      document.body.prepend(banner);
-    } else if (mode !== 'demo' && banner) {
-      banner.remove();
-      banner = null;
-    }
-  });
 }
 
 /* ── version ─────────────────────────────────────────────────────────
@@ -100,11 +76,14 @@ export function setBusy(button, busy, busyLabel) {
     failure cause get their own message rather than one generic string. */
 export function showResult(node, { kind, title, detail, hint }) {
   node.dataset.kind = kind;
-  node.replaceChildren(
+  // Filter before spreading: replaceChildren() stringifies any non-Node
+  // argument, so a null slot renders as the literal text "null".
+  const parts = [
     el('span', { class: 'result__title', text: title }),
     detail ? el('span', { class: 'result__detail', text: detail }) : null,
     hint ? el('span', { class: 'result__hint', text: hint }) : null,
-  );
+  ].filter(Boolean);
+  node.replaceChildren(...parts);
   node.hidden = false;
 }
 

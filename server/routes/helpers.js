@@ -1,17 +1,13 @@
-/* Shared response shape. Every payload carries `mode` so the browser can
-   tell live data from fixtures without a separate round trip. */
-
-import { MODE } from '../lib/state.js';
+/* Shared response shape. */
 
 export function ok(res, data) {
-  res.json({ ok: true, mode: MODE, ...data });
+  res.json({ ok: true, ...data });
 }
 
 export function fail(res, err) {
   const status = err.status || (err.isSqlError || err.isLdapError ? 502 : 500);
   res.status(status).json({
     ok: false,
-    mode: MODE,
     error: {
       code: err.code || 'internal',
       message: err.message || 'Something went wrong',

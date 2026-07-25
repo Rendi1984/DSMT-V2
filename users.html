@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DSMT — Users</title>
+<link rel="stylesheet" href="assets/css/nocturne.css">
+<link rel="stylesheet" href="assets/css/app.css">
+</head>
+<body>
+
+<div class="page">
+  <header class="topbar">
+    <span class="topbar__brand">DSMT</span>
+    <span class="topbar__version" id="version"></span>
+  </header>
+
+  <main class="page__body">
+    <h1>Users</h1>
+    <p class="text-muted">Accounts read live from the domain controller.</p>
+
+    <div class="toolbar">
+      <div class="field toolbar__search">
+        <label for="search">Search</label>
+        <input class="input" id="search" type="search" placeholder="Name, username or email" autocomplete="off">
+      </div>
+      <span class="toolbar__count" id="count" aria-live="polite"></span>
+    </div>
+
+    <!-- Four mutually exclusive states. A bare empty table is never shown:
+         "no results" and "the request failed" must be distinguishable. -->
+    <div class="state" id="state-loading">
+      <span class="spinner" aria-hidden="true"></span>
+      <span>Reading the directory…</span>
+    </div>
+
+    <div class="state" id="state-empty" hidden>
+      <span class="state__title">No matching users</span>
+      <span id="empty-detail">No accounts matched this search.</span>
+    </div>
+
+    <div class="state state--error" id="state-error" hidden>
+      <span class="state__title" id="error-title">Could not read the directory</span>
+      <span id="error-detail"></span>
+      <span class="text-muted" id="error-hint"></span>
+      <button type="button" class="btn btn-secondary" id="retry">Try again</button>
+    </div>
+
+    <div id="results" hidden>
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th scope="col">Name</th>
+              <th scope="col">Username</th>
+              <th scope="col">Email</th>
+              <th scope="col">Department</th>
+              <th scope="col">Status</th>
+              <th scope="col"><span class="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+
+      <div class="pager" id="pager" hidden>
+        <button type="button" class="btn btn-secondary" id="prev">Previous</button>
+        <span id="page-label"></span>
+        <button type="button" class="btn btn-secondary" id="next">Next</button>
+      </div>
+    </div>
+  </main>
+
+  <footer class="page__footer">© 2026 DSMT. All rights reserved.</footer>
+</div>
+
+<!-- ── user detail ────────────────────────────────────────────────── -->
+<div class="dialog-backdrop" id="detail" hidden>
+  <div class="dialog dialog--wide" role="dialog" aria-modal="true" aria-labelledby="detail-title">
+    <div class="dialog__head">
+      <span class="dialog-title" id="detail-title">User</span>
+      <button type="button" class="btn btn-icon btn-secondary" id="detail-close" aria-label="Close">
+        <svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"/></svg>
+      </button>
+    </div>
+
+    <div class="tag-row" id="detail-tags"></div>
+
+    <hr class="hr">
+    <dl class="deflist" id="detail-info"></dl>
+
+    <hr class="hr">
+    <div>
+      <h4 id="groups-heading">Group membership</h4>
+      <label class="check check--spaced">
+        <input type="checkbox" id="transitive">
+        <span>
+          Include nested groups
+          <span class="check__hint">
+            Also show groups reached indirectly, through another group's membership.
+          </span>
+        </span>
+      </label>
+
+      <div class="state" id="groups-loading">
+        <span class="spinner" aria-hidden="true"></span>
+        <span>Loading groups…</span>
+      </div>
+      <div class="state" id="groups-empty" hidden>
+        <span>This user is not a member of any group.</span>
+      </div>
+      <div class="state state--error" id="groups-error" hidden>
+        <span class="state__title">Could not read group membership</span>
+        <span id="groups-error-detail"></span>
+      </div>
+
+      <ul class="group-list" id="groups" aria-labelledby="groups-heading"></ul>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="assets/js/users.js"></script>
+</body>
+</html>

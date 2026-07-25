@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DSMT — Setup</title>
+<link rel="stylesheet" href="assets/css/nocturne.css">
+<link rel="stylesheet" href="assets/css/app.css">
+</head>
+<body>
+
+<div class="page">
+  <header class="topbar">
+    <span class="topbar__brand">DSMT</span>
+    <span class="topbar__version" id="version"></span>
+  </header>
+
+  <main class="page__body">
+    <div class="wizard">
+
+      <div class="wizard__head">
+        <h1>Set up DSMT</h1>
+        <p class="text-muted">Connect the database and your directory to finish the installation.</p>
+      </div>
+
+      <ol class="steps" id="steps">
+        <li class="step" data-step="1" data-state="active">
+          <span class="step__dot">1</span><span class="step__label">Welcome</span>
+        </li>
+        <li class="step" data-step="2">
+          <span class="step__dot">2</span><span class="step__label">Database</span>
+        </li>
+        <li class="step" data-step="3">
+          <span class="step__dot">3</span><span class="step__label">Directory</span>
+        </li>
+        <li class="step" data-step="4">
+          <span class="step__dot">4</span><span class="step__label">Finish</span>
+        </li>
+      </ol>
+
+      <!-- ── Step 1 — Welcome ─────────────────────────────────────── -->
+      <section class="wizard__panel" data-panel="1" aria-labelledby="s1-title">
+        <div>
+          <h2 id="s1-title">Before you start</h2>
+          <p class="text-muted">This wizard configures a fresh DSMT installation. It takes two things:</p>
+        </div>
+
+        <div class="card elev-sm">
+          <span class="card-kicker">Step 2</span>
+          <span class="card-title">A SQL Server you can create a database on</span>
+          <p class="card-body">
+            DSMT stores its configuration and audit trail here. The account you
+            provide needs the <strong>dbcreator</strong> server role, or an
+            existing database it can write to.
+          </p>
+        </div>
+
+        <div class="card elev-sm">
+          <span class="card-kicker">Step 3</span>
+          <span class="card-title">A directory account that can read your domain</span>
+          <p class="card-body">
+            Used to look up users. Any ordinary domain account is normally
+            enough — DSMT only reads. Plain LDAP works out of the box;
+            <strong>LDAPS</strong> is available if your domain controllers
+            have certificates installed.
+          </p>
+        </div>
+
+        <hr class="hr">
+        <p class="login__note">
+          Sign-in is not implemented yet, so DSMT listens on localhost only.
+          Do not expose it to the network until authentication ships.
+        </p>
+
+        <div class="wizard__actions">
+          <span class="spacer"></span>
+          <button type="button" class="btn btn-primary" data-next="2">
+            Get started
+            <svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"/></svg>
+          </button>
+        </div>
+      </section>
+
+      <!-- ── Step 2 — Database ────────────────────────────────────── -->
+      <section class="wizard__panel" data-panel="2" hidden aria-labelledby="s2-title">
+        <div>
+          <h2 id="s2-title">Database</h2>
+          <p class="text-muted">Where DSMT keeps its configuration and audit log.</p>
+        </div>
+
+        <form id="db-form" novalidate>
+          <fieldset class="fieldset">
+            <legend>SQL Server</legend>
+
+            <div class="field">
+              <label for="db-server">Server</label>
+              <input class="input" id="db-server" type="text" placeholder="sql01.contoso.local" autocomplete="off">
+              <span class="check__hint">
+                Accepts <code>host</code>, <code>host,1433</code> or <code>host\INSTANCE</code>.
+              </span>
+            </div>
+
+            <div class="field">
+              <label for="db-auth">Authentication</label>
+              <select class="input" id="db-auth">
+                <option value="sql">SQL Server Authentication</option>
+                <option value="windows">Windows Authentication (NTLM)</option>
+              </select>
+            </div>
+
+            <div class="field-row">
+              <div class="field">
+                <label for="db-user">Username</label>
+                <input class="input" id="db-user" type="text" placeholder="sa" autocomplete="off">
+              </div>
+              <div class="field">
+                <label for="db-pass">Password</label>
+                <input class="input" id="db-pass" type="password" autocomplete="off">
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="db-name">Database name</label>
+              <input class="input" id="db-name" type="text" value="DSMT" autocomplete="off">
+              <span class="check__hint">Created if it doesn't exist. An existing database is reused.</span>
+            </div>
+
+            <label class="check">
+              <input type="checkbox" id="db-trust">
+              <span>
+                Trust the server certificate
+                <span class="check__hint">Needed when SQL Server uses a self-signed certificate.</span>
+              </span>
+            </label>
+          </fieldset>
+
+          <div class="result" id="db-result" role="status" hidden></div>
+
+          <div class="wizard__actions">
+            <button type="button" class="btn btn-secondary" data-back="1">Back</button>
+            <span class="spacer"></span>
+            <button type="button" class="btn btn-secondary" id="db-test">Test connection</button>
+            <button type="button" class="btn btn-primary" id="db-create" disabled>Create database</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- ── Step 3 — Directory ───────────────────────────────────── -->
+      <section class="wizard__panel" data-panel="3" hidden aria-labelledby="s3-title">
+        <div>
+          <h2 id="s3-title">Directory</h2>
+          <p class="text-muted">The domain controller DSMT reads users from.</p>
+        </div>
+
+        <form id="dir-form" novalidate>
+          <fieldset class="fieldset">
+            <legend>Connection</legend>
+
+            <div class="field-row">
+              <div class="field field--grow">
+                <label for="dir-host">Domain controller</label>
+                <input class="input" id="dir-host" type="text" placeholder="dc01.contoso.local" autocomplete="off">
+              </div>
+              <div class="field field--narrow">
+                <label for="dir-port">Port</label>
+                <input class="input" id="dir-port" type="number" value="389" min="1" max="65535">
+              </div>
+            </div>
+
+            <label class="check">
+              <input type="checkbox" id="dir-ldaps">
+              <span>
+                Use LDAPS (encrypted)
+                <span class="check__hint">
+                  Switches to port 636. Your domain controllers need certificates installed.
+                </span>
+              </span>
+            </label>
+
+            <label class="check" id="dir-trust-wrap" hidden>
+              <input type="checkbox" id="dir-trust">
+              <span>
+                Trust the server certificate
+                <span class="check__hint">
+                  Needed when the certificate comes from an internal CA this server doesn't trust.
+                </span>
+              </span>
+            </label>
+          </fieldset>
+
+          <fieldset class="fieldset">
+            <legend>Bind account</legend>
+
+            <div class="field">
+              <label for="dir-basedn">Base DN</label>
+              <input class="input" id="dir-basedn" type="text" placeholder="DC=contoso,DC=local" autocomplete="off">
+              <span class="check__hint">Left blank, DSMT derives this from the domain controller's domain.</span>
+            </div>
+
+            <div class="field-row">
+              <div class="field">
+                <label for="dir-binddn">Username</label>
+                <input class="input" id="dir-binddn" type="text" placeholder="CONTOSO\svc_dsmt" autocomplete="off">
+              </div>
+              <div class="field">
+                <label for="dir-bindpw">Password</label>
+                <input class="input" id="dir-bindpw" type="password" autocomplete="off">
+              </div>
+            </div>
+            <span class="check__hint">
+              Stored encrypted. DSMT only reads the directory — no write permission is needed.
+            </span>
+          </fieldset>
+
+          <div class="result" id="dir-result" role="status" hidden></div>
+
+          <div class="wizard__actions">
+            <button type="button" class="btn btn-secondary" data-back="2">Back</button>
+            <span class="spacer"></span>
+            <button type="button" class="btn btn-secondary" id="dir-test">Test connection</button>
+            <button type="button" class="btn btn-primary" id="dir-next" disabled>Continue</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- ── Step 4 — Review ──────────────────────────────────────── -->
+      <section class="wizard__panel" data-panel="4" hidden aria-labelledby="s4-title">
+        <div>
+          <h2 id="s4-title">Review</h2>
+          <p class="text-muted">Both connections tested successfully. Save the configuration to finish.</p>
+        </div>
+
+        <div class="card elev-sm">
+          <span class="card-kicker">Database</span>
+          <dl class="deflist" id="review-db"></dl>
+        </div>
+
+        <div class="card elev-sm">
+          <span class="card-kicker">Directory</span>
+          <dl class="deflist" id="review-dir"></dl>
+        </div>
+
+        <div class="result" id="finish-result" role="status" hidden></div>
+
+        <div class="wizard__actions">
+          <button type="button" class="btn btn-secondary" data-back="3">Back</button>
+          <span class="spacer"></span>
+          <button type="button" class="btn btn-primary" id="finish">
+            Finish setup
+            <svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"/></svg>
+          </button>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <footer class="page__footer">© 2026 DSMT. All rights reserved.</footer>
+</div>
+
+<script type="module" src="assets/js/setup.js"></script>
+</body>
+</html>

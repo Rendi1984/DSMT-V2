@@ -7,12 +7,8 @@ import * as db from '../lib/db.js';
 import * as ldap from '../lib/ldap.js';
 import { encryptSecret } from '../lib/crypto.js';
 import { domainToBaseDn } from '../lib/ad-attrs.js';
-import {
-  isDemo, MODE, secretKey, writeBootstrap, getSetupStatus,
-  markDemoSetupComplete, readBootstrap,
-} from '../lib/state.js';
-import { demoDirectoryInfo, demoSqlInfo } from '../lib/demo.js';
-import { ok, fail, asHandler } from './helpers.js';
+import { secretKey, writeBootstrap, getSetupStatus } from '../lib/state.js';
+import { ok, asHandler } from './helpers.js';
 
 export const setupRouter = Router();
 
@@ -70,10 +66,6 @@ setupRouter.post('/db/test', asHandler(async (req, res) => {
   await assertSetupOpen();
   const settings = readSqlSettings(req.body || {});
 
-  if (isDemo()) {
-    return ok(res, { ...demoSqlInfo, database: settings.database });
-  }
-
   const info = await db.testConnection(settings);
   const exists = await db.databaseExists(settings, settings.database);
   ok(res, { ...info, database: settings.database, databaseExists: exists });
@@ -83,10 +75,6 @@ setupRouter.post('/db/create', asHandler(async (req, res) => {
   await assertSetupOpen();
   const settings = readSqlSettings(req.body || {});
   db.assertSafeIdentifier(settings.database); // reject bad names before dialling out
-
-  if (isDemo()) {
-    return ok(res, { created: true, adopted: false, database: settings.database });
-  }
 
   const result = await db.createDatabaseAndSchema(settings);
   ok(res, result);
@@ -130,10 +118,6 @@ setupRouter.post('/directory/test', asHandler(async (req, res) => {
   await assertSetupOpen();
   const settings = readDirectorySettings(req.body || {});
 
-  if (isDemo()) {
-    return ok(res, { ...demoDirectoryInfo, baseDn: settings.baseDn, secure: settings.useLdaps });
-  }
-
   const info = await ldap.testConnection(settings);
   ok(res, info);
 }));
@@ -145,11 +129,6 @@ setupRouter.post('/complete', asHandler(async (req, res) => {
   const body = req.body || {};
   const sqlSettings = readSqlSettings(body.database || {});
   const dirSettings = readDirectorySettings(body.directory || {});
-
-  if (isDemo()) {
-    markDemoSetupComplete();
-    return ok(res, { complete: true, database: sqlSettings.database });
-  }
 
   // Re-verify both connections rather than trusting that the earlier test
   // steps passed — the browser controls what it sends here.

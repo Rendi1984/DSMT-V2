@@ -1,15 +1,13 @@
 /* Feature 1 — user lookup against the domain controller.
 
    Read-only and always live: the directory is queried on each request rather
-   than mirrored into SQL Server, so what the table shows is what AD holds
-   right now. Demo mode is the sole exception and is gated explicitly. */
+   than mirrored into SQL Server, so what the table shows is what the domain
+   controller holds right now. */
 
 import { Router } from 'express';
 
 import * as ldap from '../lib/ldap.js';
-import { isDemo } from '../lib/state.js';
 import { getDirectoryConfig } from '../lib/state.js';
-import { demoListUsers, demoGetUser, demoGetUserGroups } from '../lib/demo.js';
 import { ok, asHandler } from './helpers.js';
 
 export const usersRouter = Router();
@@ -45,10 +43,6 @@ usersRouter.get('/', asHandler(async (req, res) => {
   const q = String(req.query.q || '').trim();
   const page = req.query.page;
 
-  if (isDemo()) {
-    return ok(res, paginate(demoListUsers({ q }), page));
-  }
-
   const cfg = await requireDirectory();
   const users = await ldap.listUsers(cfg, { q });
   users.sort((a, b) => (a.displayName || a.samAccountName).localeCompare(b.displayName || b.samAccountName));
@@ -60,7 +54,7 @@ usersRouter.get('/', asHandler(async (req, res) => {
 usersRouter.get('/:sam', asHandler(async (req, res) => {
   const { sam } = req.params;
 
-  const user = isDemo() ? demoGetUser(sam) : await ldap.getUser(await requireDirectory(), sam);
+  const user = await ldap.getUser(await requireDirectory(), sam);
   if (!user) {
     throw Object.assign(new Error('User not found'), {
       code: 'user_not_found',
@@ -79,14 +73,6 @@ usersRouter.get('/:sam', asHandler(async (req, res) => {
 usersRouter.get('/:sam/groups', asHandler(async (req, res) => {
   const { sam } = req.params;
   const transitive = req.query.transitive === 'true' || req.query.transitive === '1';
-
-  if (isDemo()) {
-    const groups = demoGetUserGroups(sam, { transitive });
-    if (!groups) {
-      throw Object.assign(new Error('User not found'), { code: 'user_not_found', status: 404 });
-    }
-    return ok(res, { groups, transitive });
-  }
 
   const cfg = await requireDirectory();
   const user = await ldap.getUser(cfg, sam);
