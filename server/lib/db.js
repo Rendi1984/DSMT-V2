@@ -3,12 +3,14 @@
 
 import sql from 'mssql';
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
+
+export const DEFAULT_SQL_PORT = 1433;
 
 /* ── connection config ────────────────────────────────────────────────
-   Admins write the server three different ways — `host`, `host,1433` and
-   `host\INSTANCE` — and all three have to work, because rejecting the one
-   they pasted from SSMS is a pointless dead end. */
+   The wizard asks for server, port and instance as separate fields, but an
+   admin will still paste `host,1433` or `host\INSTANCE` straight out of SSMS
+   into the server box. This parses all three shapes so that keeps working. */
 export function parseServerSpec(spec) {
   const raw = String(spec || '').trim();
   if (!raw) return { server: '', instanceName: undefined, port: undefined };
@@ -36,10 +38,36 @@ export function parseServerSpec(spec) {
   return { server: raw, instanceName: undefined, port: undefined };
 }
 
+/** Resolve the three connection fields into one answer.
+
+    Anything embedded in the server string wins over the separate fields —
+    if someone pasted `sql01\SQLEXPRESS`, that is a more specific statement of
+    intent than a port box still sitting on its 1433 default.
+
+    A named instance and a port are mutually exclusive: the instance is
+    resolved by the SQL Browser service, and supplying a port as well makes
+    the driver dial that port directly and ignore the instance, which fails
+    as a confusing timeout rather than as "you can't set both". */
+export function resolveEndpoint(settings) {
+  const parsed = parseServerSpec(settings.server);
+  const instanceName = parsed.instanceName || (settings.instance
+    ? String(settings.instance).trim() || undefined
+    : undefined);
+
+  if (instanceName) return { server: parsed.server, instanceName, port: undefined };
+
+  const explicit = Number(parsed.port || settings.port);
+  return {
+    server: parsed.server,
+    instanceName: undefined,
+    port: Number.isFinite(explicit) && explicit > 0 ? explicit : DEFAULT_SQL_PORT,
+  };
+}
+
 /** Build an `mssql` config. `database` is chosen by the caller: setup
     connects to `master` first, then to the new database. */
 export function buildSqlConfig(settings, database) {
-  const { server, instanceName, port } = parseServerSpec(settings.server);
+  const { server, instanceName, port } = resolveEndpoint(settings);
   const useWindowsAuth = settings.authMode === 'windows';
 
   const config = {
@@ -58,7 +86,7 @@ export function buildSqlConfig(settings, database) {
   };
 
   if (instanceName) config.options.instanceName = instanceName;
-  else if (port || settings.port) config.port = Number(port || settings.port);
+  else config.port = port;
 
   if (useWindowsAuth) {
     // NTLM: tedious wants the bare account plus the domain separately.
@@ -284,6 +312,7 @@ CREATE TABLE dbo.directory_config (
   id                 INT            NOT NULL PRIMARY KEY,
   host               NVARCHAR(255)  NOT NULL,
   port               INT            NOT NULL,
+  domain             NVARCHAR(255)  NULL,
   base_dn            NVARCHAR(512)  NOT NULL,
   bind_dn            NVARCHAR(512)  NOT NULL,
   bind_password_enc  NVARCHAR(MAX)  NOT NULL,
@@ -292,6 +321,14 @@ CREATE TABLE dbo.directory_config (
   updated_utc        DATETIME2(0)   NOT NULL CONSTRAINT DF_dir_updated DEFAULT SYSUTCDATETIME(),
   CONSTRAINT CK_directory_config_single_row CHECK (id = 1)
 );
+
+/* Schema v1 → v2: the domain became a field the wizard asks for rather than
+   something inferred from the DC hostname. Guarded so re-running the wizard
+   over a v1 database adds the column instead of failing. */
+IF OBJECT_ID('dbo.directory_config', 'U') IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM sys.columns
+                   WHERE object_id = OBJECT_ID('dbo.directory_config') AND name = 'domain')
+ALTER TABLE dbo.directory_config ADD domain NVARCHAR(255) NULL;
 
 IF OBJECT_ID('dbo.audit_log', 'U') IS NULL
 CREATE TABLE dbo.audit_log (
@@ -343,6 +380,7 @@ export async function saveDirectoryConfig(pool, cfg) {
   await pool.request()
     .input('host', sql.NVarChar, cfg.host)
     .input('port', sql.Int, cfg.port)
+    .input('domain', sql.NVarChar, cfg.domain || null)
     .input('baseDn', sql.NVarChar, cfg.baseDn)
     .input('bindDn', sql.NVarChar, cfg.bindDn)
     .input('enc', sql.NVarChar, cfg.bindPasswordEnc)
@@ -352,17 +390,17 @@ export async function saveDirectoryConfig(pool, cfg) {
       MERGE dbo.directory_config AS t
       USING (SELECT 1 AS id) AS s ON t.id = s.id
       WHEN MATCHED THEN UPDATE SET
-        host = @host, port = @port, base_dn = @baseDn, bind_dn = @bindDn,
+        host = @host, port = @port, domain = @domain, base_dn = @baseDn, bind_dn = @bindDn,
         bind_password_enc = @enc, use_ldaps = @ldaps, trust_server_cert = @trust,
         updated_utc = SYSUTCDATETIME()
-      WHEN NOT MATCHED THEN INSERT (id, host, port, base_dn, bind_dn, bind_password_enc, use_ldaps, trust_server_cert)
-        VALUES (1, @host, @port, @baseDn, @bindDn, @enc, @ldaps, @trust);
+      WHEN NOT MATCHED THEN INSERT (id, host, port, domain, base_dn, bind_dn, bind_password_enc, use_ldaps, trust_server_cert)
+        VALUES (1, @host, @port, @domain, @baseDn, @bindDn, @enc, @ldaps, @trust);
     `);
 }
 
 export async function loadDirectoryConfig(pool) {
   const res = await pool.request().query(`
-    SELECT host, port, base_dn, bind_dn, bind_password_enc, use_ldaps, trust_server_cert
+    SELECT host, port, domain, base_dn, bind_dn, bind_password_enc, use_ldaps, trust_server_cert
     FROM dbo.directory_config WHERE id = 1
   `);
   if (!res.recordset.length) return null;
@@ -370,6 +408,7 @@ export async function loadDirectoryConfig(pool) {
   return {
     host: r.host,
     port: r.port,
+    domain: r.domain || '',
     baseDn: r.base_dn,
     bindDn: r.bind_dn,
     bindPasswordEnc: r.bind_password_enc,

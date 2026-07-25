@@ -92,11 +92,28 @@
           <fieldset class="fieldset">
             <legend>SQL Server</legend>
 
+            <div class="field-row">
+              <div class="field field--grow">
+                <label for="db-server">Server</label>
+                <input class="input" id="db-server" type="text" placeholder="sql01.contoso.local" autocomplete="off">
+              </div>
+              <div class="field field--narrow">
+                <label for="db-port">Port</label>
+                <input class="input" id="db-port" type="number" value="1433" min="1" max="65535">
+              </div>
+            </div>
+            <span class="check__hint">
+              Hostname or IP. You can also paste <code>sql01,1433</code> or
+              <code>sql01\SQLEXPRESS</code> here and DSMT will split it into the
+              fields below.
+            </span>
+
             <div class="field">
-              <label for="db-server">Server</label>
-              <input class="input" id="db-server" type="text" placeholder="sql01.contoso.local" autocomplete="off">
+              <label for="db-instance">Instance name <span class="text-muted">(optional)</span></label>
+              <input class="input" id="db-instance" type="text" placeholder="SQLEXPRESS" autocomplete="off">
               <span class="check__hint">
-                Accepts <code>host</code>, <code>host,1433</code> or <code>host\INSTANCE</code>.
+                Only for named instances. These are resolved by the SQL Browser
+                service, so a port cannot be used at the same time.
               </span>
             </div>
 
@@ -122,7 +139,10 @@
             <div class="field">
               <label for="db-name">Database name</label>
               <input class="input" id="db-name" type="text" value="DSMT" autocomplete="off">
-              <span class="check__hint">Created if it doesn't exist. An existing database is reused.</span>
+              <span class="check__hint">
+                The database DSMT creates and stores its configuration in. Created
+                if it doesn't exist; an existing one is reused and nothing is dropped.
+              </span>
             </div>
 
             <label class="check">
@@ -189,13 +209,29 @@
           </fieldset>
 
           <fieldset class="fieldset">
-            <legend>Bind account</legend>
+            <legend>Domain</legend>
+
+            <div class="field">
+              <label for="dir-domain">Domain name</label>
+              <input class="input" id="dir-domain" type="text" placeholder="contoso.local" autocomplete="off">
+              <span class="check__hint">
+                Your Active Directory domain — not the controller's hostname.
+                DSMT builds the base DN from it.
+              </span>
+            </div>
 
             <div class="field">
               <label for="dir-basedn">Base DN</label>
               <input class="input" id="dir-basedn" type="text" placeholder="DC=contoso,DC=local" autocomplete="off">
-              <span class="check__hint">Left blank, DSMT derives this from the domain controller's domain.</span>
+              <span class="check__hint">
+                Filled in from the domain above. Narrow it to search one OU only,
+                for example <code>OU=Staff,DC=contoso,DC=local</code>.
+              </span>
             </div>
+          </fieldset>
+
+          <fieldset class="fieldset">
+            <legend>Bind account</legend>
 
             <div class="field-row">
               <div class="field">
@@ -208,7 +244,15 @@
               </div>
             </div>
             <span class="check__hint">
-              Stored encrypted. DSMT only reads the directory — no write permission is needed.
+              Any of three forms works: <code>CONTOSO\svc_dsmt</code>,
+              <code>svc_dsmt@contoso.local</code>, or a full DN such as
+              <code>CN=svc_dsmt,OU=Service,DC=contoso,DC=local</code>. A bare
+              username is completed using the domain above. Non-AD LDAP servers
+              usually require the full DN.
+            </span>
+            <span class="check__hint">
+              The password is stored encrypted. DSMT only reads the directory —
+              no write permission is needed.
             </span>
           </fieldset>
 

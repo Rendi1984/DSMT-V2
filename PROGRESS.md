@@ -10,7 +10,7 @@ controller.
 
 | Area | State |
 |---|---|
-| Setup wizard (4 steps) | Built |
+| Setup wizard (4 steps) | Built. Asks for SQL server/port/instance/database name, and the domain, base DN and bind account |
 | SQL Server create + schema | Built, **not yet run against a real SQL Server** |
 | LDAP connection | Built and verified against a live server |
 | LDAPS connection | Built and verified against a live TLS server |
@@ -19,7 +19,7 @@ controller.
 
 ## What has actually been verified, and how
 
-Unit tests (`npm test`, 56 passing) cover the pure logic — filter escaping,
+Unit tests (`npm test`, 63 passing) cover the pure logic — filter escaping,
 UAC bit maths, FILETIME conversion, DN parsing, LDAPS port derivation, SQL
 config building, identifier allowlisting, encryption round trip.
 
@@ -29,6 +29,11 @@ AD-shaped attributes (`sAMAccountName`, `userAccountControl`, `lockoutTime`,
 it, confirmed working:
 
 - Connection test, user listing, search, single-user lookup, group membership
+- The wizard's new fields: the paste helper splitting `host,port` and
+  `host\INSTANCE`, instance disabling the port box, the domain deriving the
+  base DN (including multi-label domains), a hand-typed base DN surviving a
+  later domain edit, and bind-name completion leaving `DOMAIN\user`,
+  `user@domain` and full DNs untouched
 - Attribute decoding from real entries: disabled (UAC 514), locked out
   (`lockoutTime`), password-never-expires (UAC 66048), FILETIME → ISO dates,
   DN → readable OU path, manager DN → name

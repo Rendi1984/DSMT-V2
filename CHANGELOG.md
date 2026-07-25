@@ -13,15 +13,24 @@ First working increment: the web setup wizard and Feature 1.
   Review. Forward navigation is gated on each step's connection test passing,
   and editing a tested field revokes that pass so the review step can never
   describe settings that were never verified.
-- **SQL Server provisioning** — test the connection against `master`, then
-  create the database and schema. Idempotent: an existing database is adopted
-  and any missing schema applied rather than failing. Supports SQL Server
-  Authentication and NTLM, `server\instance` or `server,port`, and an explicit
-  trust-server-certificate toggle for self-signed certs.
-- **Directory connection** — LDAP with an optional **LDAPS** toggle that
-  switches scheme and default port (389 ↔ 636), plus a trust-certificate
-  option for internal CAs. Connection failures are reported by distinct cause
-  (host unreachable, TLS rejected, bad credentials, bad base DN).
+- **SQL Server provisioning** — the wizard asks for server, **port** (1433 by
+  default), optional **instance name** and **database name** as separate
+  fields; pasting `sql01,1433` or `sql01\SQLEXPRESS` into the server box still
+  works and is split across them. Instance and port are mutually exclusive, as
+  the SQL Browser service resolves the instance. Tests the connection against
+  `master`, then creates the database and schema — idempotent, so an existing
+  database is adopted and only missing schema applied. Supports SQL Server
+  Authentication and NTLM, and an explicit trust-server-certificate toggle.
+- **Directory connection** — the wizard asks for the domain controller, port,
+  and the **domain name** itself (`contoso.local`), which builds the base DN
+  (`DC=contoso,DC=local`) rather than guessing it from the controller's
+  hostname. The base DN stays editable so the search can be narrowed to a
+  single OU. The bind account accepts `DOMAIN\user`, `user@domain` or a full
+  DN, all three stated on the form; a bare username is completed from the
+  domain. Optional **LDAPS** toggle switches scheme and default port
+  (389 ↔ 636), with a trust-certificate option for internal CAs. Connection
+  failures are reported by distinct cause (host unreachable, TLS rejected,
+  bad credentials, bad base DN).
 - **Feature 1 — user lookup** (`users.html`): live user list from the domain
   controller with search and pagination, per-user detail, and group membership
   showing both direct groups and full nested membership.

@@ -147,6 +147,12 @@
   color: color-mix(in srgb, var(--color-text) 55%, transparent);
 }
 
+/* A field switched off because another setting supersedes it (the SQL port
+   while a named instance is set). Dimmed rather than hidden, so it stays
+   visible as an option that currently doesn't apply. */
+.field[data-disabled='true'] { opacity: 0.5; }
+.input:disabled { cursor: not-allowed; }
+
 /* ── inline field errors ────────────────────────────────────────────── */
 .field__error { display: none; margin-top: 4px; font-size: 12px; color: var(--color-danger); }
 .field[data-invalid] .field__error { display: block; }

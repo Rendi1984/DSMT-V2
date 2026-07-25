@@ -39,6 +39,8 @@ setupRouter.get('/status', asHandler(async (req, res) => {
 function readSqlSettings(body) {
   const settings = {
     server: String(body.server || '').trim(),
+    port: Number(body.port) || undefined,
+    instance: String(body.instance || '').trim(),
     authMode: body.authMode === 'windows' ? 'windows' : 'sql',
     username: String(body.username || '').trim(),
     password: String(body.password || ''),
@@ -87,6 +89,7 @@ function readDirectorySettings(body) {
   const settings = {
     host: String(body.host || '').trim(),
     port: Number(body.port) || ldap.defaultPortFor(useLdaps),
+    domain: String(body.domain || '').trim(),
     baseDn: String(body.baseDn || '').trim(),
     bindDn: String(body.bindDn || '').trim(),
     bindPassword: String(body.bindPassword || ''),
@@ -105,11 +108,20 @@ function readDirectorySettings(body) {
       status: 400,
     });
   }
-  // An empty base DN is a common omission with an obvious answer: derive it
-  // from the host's domain rather than bouncing the user back to the form.
+  // Derive the base DN from the domain the admin gave us. Deriving it from
+  // the DC hostname instead is a guess that breaks whenever the DC is reached
+  // by IP or short name, or its FQDN doesn't match the AD domain.
   if (!settings.baseDn) {
-    const parts = settings.host.split('.').slice(1).join('.');
-    settings.baseDn = domainToBaseDn(parts || settings.host);
+    if (!settings.domain) {
+      throw Object.assign(new Error('Domain or base DN required'), {
+        code: 'validation',
+        message: 'Domain or base DN required',
+        detail: 'Provide the domain (for example contoso.local), or type the base DN directly.',
+        hint: 'DSMT builds the base DN from the domain: contoso.local becomes DC=contoso,DC=local.',
+        status: 400,
+      });
+    }
+    settings.baseDn = domainToBaseDn(settings.domain);
   }
   return settings;
 }
@@ -142,6 +154,7 @@ setupRouter.post('/complete', asHandler(async (req, res) => {
     await db.saveDirectoryConfig(pool, {
       host: dirSettings.host,
       port: dirSettings.port,
+      domain: dirSettings.domain,
       baseDn: dirSettings.baseDn,
       bindDn: dirSettings.bindDn,
       bindPasswordEnc: encryptSecret(dirSettings.bindPassword, secretKey()),

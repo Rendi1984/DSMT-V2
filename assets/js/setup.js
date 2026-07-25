@@ -48,6 +48,8 @@ for (const button of $$('[data-back]')) {
 
 const dbFields = {
   server: $('#db-server'),
+  port: $('#db-port'),
+  instance: $('#db-instance'),
   auth: $('#db-auth'),
   user: $('#db-user'),
   pass: $('#db-pass'),
@@ -60,6 +62,7 @@ const dirFields = {
   port: $('#dir-port'),
   ldaps: $('#dir-ldaps'),
   trust: $('#dir-trust'),
+  domain: $('#dir-domain'),
   baseDn: $('#dir-basedn'),
   bindDn: $('#dir-binddn'),
   bindPw: $('#dir-bindpw'),
@@ -67,6 +70,8 @@ const dirFields = {
 
 const dbSettings = () => ({
   server: dbFields.server.value.trim(),
+  port: Number(dbFields.port.value) || undefined,
+  instance: dbFields.instance.value.trim(),
   authMode: dbFields.auth.value,
   username: dbFields.user.value.trim(),
   password: dbFields.pass.value,
@@ -77,6 +82,7 @@ const dbSettings = () => ({
 const dirSettings = () => ({
   host: dirFields.host.value.trim(),
   port: Number(dirFields.port.value) || undefined,
+  domain: dirFields.domain.value.trim(),
   baseDn: dirFields.baseDn.value.trim(),
   bindDn: dirFields.bindDn.value.trim(),
   bindPassword: dirFields.bindPw.value,
@@ -110,6 +116,82 @@ for (const input of Object.values(dirFields)) {
   input.addEventListener('change', () => invalidate('dir'));
 }
 
+/* ── SQL Server endpoint fields ──────────────────────────────────────
+   Server, port and instance are three boxes, but an admin will still paste
+   whatever SSMS showed them into the first one. Rather than rejecting that,
+   split it across the fields so they can see what DSMT understood. */
+
+const DEFAULT_SQL_PORT = 1433;
+
+dbFields.server.addEventListener('blur', () => {
+  const raw = dbFields.server.value.trim();
+
+  const backslash = raw.indexOf('\\');
+  if (backslash !== -1) {
+    dbFields.server.value = raw.slice(0, backslash).trim();
+    dbFields.instance.value = raw.slice(backslash + 1).trim();
+  } else {
+    const sep = raw.search(/[,:]/);
+    if (sep !== -1) {
+      const port = Number(raw.slice(sep + 1).trim());
+      dbFields.server.value = raw.slice(0, sep).trim();
+      if (Number.isInteger(port) && port > 0 && port <= 65535) {
+        dbFields.port.value = String(port);
+      }
+    }
+  }
+  syncInstanceAndPort();
+});
+
+/* A named instance is resolved by the SQL Browser service. Sending a port as
+   well makes the driver dial that port and ignore the instance, which surfaces
+   as a baffling timeout — so the two are mutually exclusive on screen too. */
+function syncInstanceAndPort() {
+  const hasInstance = dbFields.instance.value.trim() !== '';
+  dbFields.port.disabled = hasInstance;
+  dbFields.port.closest('.field').dataset.disabled = hasInstance ? 'true' : '';
+  if (!hasInstance && dbFields.port.value.trim() === '') {
+    dbFields.port.value = String(DEFAULT_SQL_PORT);
+  }
+}
+
+dbFields.instance.addEventListener('input', syncInstanceAndPort);
+syncInstanceAndPort();
+
+/* ── domain drives the base DN ───────────────────────────────────────
+   contoso.local → DC=contoso,DC=local. Only auto-filled while the admin
+   hasn't written their own base DN, so narrowing it to a single OU sticks. */
+
+let baseDnTouched = false;
+dirFields.baseDn.addEventListener('input', () => { baseDnTouched = true; });
+
+function domainToBaseDn(domain) {
+  return String(domain || '')
+    .trim()
+    .replace(/^\.+|\.+$/g, '')
+    .split('.')
+    .filter(Boolean)
+    .map((label) => `DC=${label}`)
+    .join(',');
+}
+
+dirFields.domain.addEventListener('input', () => {
+  if (baseDnTouched && dirFields.baseDn.value.trim() !== '') return;
+  dirFields.baseDn.value = domainToBaseDn(dirFields.domain.value);
+  baseDnTouched = false;
+});
+
+/* A bare username is ambiguous to a directory. Complete it to a UPN using the
+   domain, but leave DOMAIN\user, user@domain and full DNs exactly as typed —
+   a non-AD server needs the DN form and must not be rewritten. */
+dirFields.bindDn.addEventListener('blur', () => {
+  const value = dirFields.bindDn.value.trim();
+  const domain = dirFields.domain.value.trim();
+  if (!value || !domain) return;
+  if (value.includes('\\') || value.includes('@') || value.includes('=')) return;
+  dirFields.bindDn.value = `${value}@${domain}`;
+});
+
 /* ── LDAPS toggle ───────────────────────────────────────────────────
    Flipping the toggle moves the port between 389 and 636, but only when
    the field still holds the other default — a deliberately typed port
@@ -133,8 +215,15 @@ dirFields.ldaps.addEventListener('change', () => {
 
 /* ── step 2: database ────────────────────────────────────────────────── */
 
+const portCheck = (v, disabled) => {
+  if (disabled || !v) return '';
+  const n = Number(v);
+  return (!Number.isInteger(n) || n < 1 || n > 65535) ? 'Enter a port between 1 and 65535.' : '';
+};
+
 const dbChecks = () => [
   [dbFields.server, required('The server address')],
+  [dbFields.port, (v) => portCheck(v, dbFields.port.disabled)],
   [dbFields.user, required('The username')],
   [dbFields.pass, required('The password')],
   [dbFields.name, (v) => {
@@ -221,10 +310,11 @@ const dirChecks = () => [
   [dirFields.host, required('The domain controller')],
   [dirFields.bindDn, required('The username')],
   [dirFields.bindPw, required('The password')],
-  [dirFields.port, (v) => {
-    const n = Number(v);
-    return v && (!Number.isInteger(n) || n < 1 || n > 65535) ? 'Enter a port between 1 and 65535.' : '';
-  }],
+  [dirFields.port, (v) => portCheck(v, false)],
+  // One of the two must be present: without either, there is nothing to
+  // search and the old behaviour was to guess from the hostname.
+  [dirFields.domain, (v) => (v || dirFields.baseDn.value.trim()
+    ? '' : 'Enter the domain, or type the base DN below.')],
 ];
 
 $('#dir-test').addEventListener('click', async (e) => {
@@ -280,6 +370,8 @@ function renderReview() {
   const dbList = $('#review-db');
   dbList.replaceChildren();
   row(dbList, 'Server', db.server);
+  row(dbList, db.instance ? 'Instance' : 'Port',
+    db.instance || String(db.port || DEFAULT_SQL_PORT));
   row(dbList, 'Database', db.database);
   row(dbList, 'Authentication', db.authMode === 'windows' ? 'Windows (NTLM)' : 'SQL Server');
   row(dbList, 'Username', db.username);
@@ -289,7 +381,8 @@ function renderReview() {
   dirList.replaceChildren();
   row(dirList, 'Controller', `${dir.host}:${dir.port || (dir.useLdaps ? LDAPS_PORT : LDAP_PORT)}`);
   row(dirList, 'Encryption', dir.useLdaps ? 'LDAPS' : 'None (plain LDAP)');
-  row(dirList, 'Base DN', dir.baseDn || '(derived from the domain)');
+  row(dirList, 'Domain', dir.domain || '—');
+  row(dirList, 'Base DN', dir.baseDn || domainToBaseDn(dir.domain));
   row(dirList, 'Bind account', dir.bindDn);
   if (dir.trustServerCert) row(dirList, 'Certificate', 'Trusted without validation');
 }

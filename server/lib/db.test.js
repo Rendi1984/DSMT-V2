@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  parseServerSpec, buildSqlConfig, classifySqlError, assertSafeIdentifier,
+  parseServerSpec, resolveEndpoint, buildSqlConfig, classifySqlError,
+  assertSafeIdentifier, DEFAULT_SQL_PORT,
 } from './db.js';
 
 test('parseServerSpec accepts a bare host', () => {
@@ -31,6 +32,51 @@ test('parseServerSpec trims and tolerates empty input', () => {
   assert.equal(parseServerSpec('  sql01  ').server, 'sql01');
   assert.deepEqual(parseServerSpec(''), { server: '', instanceName: undefined, port: undefined });
   assert.deepEqual(parseServerSpec(undefined), { server: '', instanceName: undefined, port: undefined });
+});
+
+/* ── resolveEndpoint: the wizard's three separate fields ─────────────── */
+
+test('resolveEndpoint defaults to port 1433', () => {
+  assert.deepEqual(resolveEndpoint({ server: 'sql01' }),
+    { server: 'sql01', instanceName: undefined, port: DEFAULT_SQL_PORT });
+});
+
+test('resolveEndpoint uses an explicit port field', () => {
+  assert.equal(resolveEndpoint({ server: 'sql01', port: 14330 }).port, 14330);
+});
+
+test('resolveEndpoint uses an explicit instance field', () => {
+  const r = resolveEndpoint({ server: 'sql01', instance: 'SQLEXPRESS' });
+  assert.equal(r.instanceName, 'SQLEXPRESS');
+  assert.equal(r.port, undefined, 'an instance must never be paired with a port');
+});
+
+test('resolveEndpoint drops the port when an instance is set', () => {
+  // Both supplied: the instance wins and the port is discarded, because
+  // sending both makes the driver dial the port and ignore the instance.
+  const r = resolveEndpoint({ server: 'sql01', port: 1433, instance: 'SQLEXPRESS' });
+  assert.equal(r.instanceName, 'SQLEXPRESS');
+  assert.equal(r.port, undefined);
+});
+
+test('resolveEndpoint lets a pasted spec override the separate fields', () => {
+  // Pasting `sql01\SQLEXPRESS` is a more specific statement of intent than a
+  // port box still sitting on its untouched default.
+  const r = resolveEndpoint({ server: 'sql01\\SQLEXPRESS', port: 1433 });
+  assert.equal(r.server, 'sql01');
+  assert.equal(r.instanceName, 'SQLEXPRESS');
+  assert.equal(r.port, undefined);
+
+  const withPort = resolveEndpoint({ server: 'sql02,14330', port: 1433 });
+  assert.equal(withPort.server, 'sql02');
+  assert.equal(withPort.port, 14330);
+});
+
+test('resolveEndpoint ignores a nonsense port', () => {
+  for (const port of [0, -1, NaN, 'abc', undefined, null]) {
+    assert.equal(resolveEndpoint({ server: 'sql01', port }).port, DEFAULT_SQL_PORT,
+      `should fall back for ${JSON.stringify(port)}`);
+  }
 });
 
 test('buildSqlConfig defaults to encrypted with certificate validation on', () => {
@@ -75,6 +121,12 @@ test('buildSqlConfig sets instanceName instead of a port for named instances', (
   const cfg = buildSqlConfig({ server: 'sql01\\SQLEXPRESS', username: 'sa', password: 'p' }, 'DSMT');
   assert.equal(cfg.options.instanceName, 'SQLEXPRESS');
   assert.equal(cfg.port, undefined);
+});
+
+test('buildSqlConfig carries the wizard port through to the driver', () => {
+  const cfg = buildSqlConfig({ server: 'sql01', port: 14330, username: 'sa', password: 'p' }, 'DSMT');
+  assert.equal(cfg.port, 14330);
+  assert.equal(cfg.options.instanceName, undefined);
 });
 
 test('assertSafeIdentifier accepts ordinary names and bracket-quotes them', () => {
