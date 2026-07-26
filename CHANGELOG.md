@@ -21,6 +21,19 @@ First working increment: the web setup wizard and Feature 1.
   `master`, then creates the database and schema — idempotent, so an existing
   database is adopted and only missing schema applied. Supports SQL Server
   Authentication and NTLM, and an explicit trust-server-certificate toggle.
+- **Windows Integrated Authentication for SQL Server** — leave the username and
+  password blank and DSMT connects as the account it is running as, so no
+  database password needs storing. The wizard names that account before you
+  connect. Requires the optional `msnodesqlv8` driver, and Windows; both are
+  reported specifically when unavailable. Filling in only one of the two
+  credential fields is rejected as a mistake rather than silently falling back.
+- **`DEPLOYMENT.html`** — a self-contained deployment guide covering
+  prerequisites, install, every wizard field, configuration, troubleshooting by
+  message, and what is and is not yet verified. Included in the release ZIP with
+  its version stamped from `package.json`.
+- **`npm run package`** — builds `dist/dsmt-<version>.zip`. Dependencies are
+  bundled by default so an offline server needs no `npm install`; `--no-deps`
+  produces a smaller archive. Never includes `server/data/`.
 - **Directory connection** — the wizard asks for the domain controller, port,
   and the **domain name** itself (`contoso.local`), which builds the base DN
   (`DC=contoso,DC=local`) rather than guessing it from the controller's

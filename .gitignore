@@ -6,3 +6,5 @@ server/data/*.key
 
 *.log
 .DS_Store
+
+dist/

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   parseServerSpec, resolveEndpoint, buildSqlConfig, classifySqlError,
-  assertSafeIdentifier, DEFAULT_SQL_PORT,
+  assertSafeIdentifier, DEFAULT_SQL_PORT, resolveAuthMode, processIdentity,
 } from './db.js';
 
 test('parseServerSpec accepts a bare host', () => {
@@ -89,6 +89,50 @@ test('buildSqlConfig defaults to encrypted with certificate validation on', () =
 test('buildSqlConfig honours the trust-certificate escape hatch', () => {
   const cfg = buildSqlConfig({ server: 'sql01', username: 'sa', password: 'p', trustServerCert: true }, 'DSMT');
   assert.equal(cfg.options.trustServerCertificate, true);
+});
+
+/* ── blank credentials mean "the account running DSMT" ──────────────── */
+
+test('resolveAuthMode picks integrated when both credentials are blank', () => {
+  assert.equal(resolveAuthMode({ server: 'sql01' }), 'integrated');
+  assert.equal(resolveAuthMode({ server: 'sql01', username: '', password: '' }), 'integrated');
+  assert.equal(resolveAuthMode({ server: 'sql01', username: '   ' }), 'integrated');
+});
+
+test('resolveAuthMode picks SQL or NTLM when credentials are given', () => {
+  assert.equal(resolveAuthMode({ username: 'sa', password: 'p' }), 'sql');
+  assert.equal(resolveAuthMode({ username: 'sa', password: 'p', authMode: 'windows' }), 'ntlm');
+});
+
+test('resolveAuthMode does not fall back to integrated on a half-filled form', () => {
+  // A username with no password is a typo, not a request for integrated auth.
+  // Silently connecting as the service account there would be surprising.
+  assert.equal(resolveAuthMode({ username: 'sa', password: '' }), 'sql');
+  assert.equal(resolveAuthMode({ username: '', password: 'p' }), 'sql');
+});
+
+test('buildSqlConfig asks for a trusted connection and sends no credentials', () => {
+  const cfg = buildSqlConfig({ server: 'sql01' }, 'DSMT');
+  assert.equal(cfg.authMode, 'integrated');
+  assert.equal(cfg.options.trustedConnection, true);
+  assert.equal(cfg.user, undefined, 'integrated auth must not send a username');
+  assert.equal(cfg.password, undefined, 'integrated auth must not send a password');
+  assert.equal(cfg.authentication, undefined);
+});
+
+test('buildSqlConfig leaves trustedConnection off when credentials are given', () => {
+  const cfg = buildSqlConfig({ server: 'sql01', username: 'sa', password: 'p' }, 'DSMT');
+  assert.equal(cfg.authMode, 'sql');
+  assert.equal(cfg.options.trustedConnection, undefined);
+});
+
+test('processIdentity reports an account and whether integrated auth can work', () => {
+  const id = processIdentity();
+  assert.equal(typeof id.account, 'string');
+  assert.equal(typeof id.platform, 'string');
+  // Integrated auth is a Windows facility; the flag must track the real platform
+  // so the wizard can say so instead of failing at the Test button.
+  assert.equal(id.platformSupportsIntegrated, process.platform === 'win32');
 });
 
 test('buildSqlConfig uses SQL authentication by default', () => {

@@ -31,7 +31,7 @@ async function assertSetupOpen() {
 /* ── status ──────────────────────────────────────────────────────────── */
 
 setupRouter.get('/status', asHandler(async (req, res) => {
-  ok(res, await getSetupStatus());
+  ok(res, { ...await getSetupStatus(), identity: db.processIdentity() });
 }));
 
 /* ── database ────────────────────────────────────────────────────────── */
@@ -49,15 +49,26 @@ function readSqlSettings(body) {
     encrypt: body.encrypt !== false,
     trustServerCert: Boolean(body.trustServerCert),
   };
-  const missing = [];
-  if (!settings.server) missing.push('SQL Server address');
-  if (!settings.username) missing.push('username');
-  if (!settings.password) missing.push('password');
-  if (missing.length) {
+  if (!settings.server) {
     throw Object.assign(new Error('Missing required fields'), {
       code: 'validation',
       message: 'Missing required fields',
-      detail: `Provide the ${missing.join(', ')}.`,
+      detail: 'Provide the SQL Server address.',
+      status: 400,
+    });
+  }
+  // Username and password are deliberately optional: leaving both blank means
+  // "connect as the account DSMT already runs as" (Windows Integrated
+  // Authentication). Half-filled is still an error, since it is far more
+  // likely to be a typo than a deliberate choice.
+  const hasUser = settings.username !== '';
+  const hasPassword = settings.password !== '';
+  if (hasUser !== hasPassword) {
+    throw Object.assign(new Error('Incomplete credentials'), {
+      code: 'validation',
+      message: 'Incomplete credentials',
+      detail: hasUser ? 'A username was given without a password.' : 'A password was given without a username.',
+      hint: 'Fill in both, or clear both to connect as the account running DSMT.',
       status: 400,
     });
   }
@@ -70,7 +81,12 @@ setupRouter.post('/db/test', asHandler(async (req, res) => {
 
   const info = await db.testConnection(settings);
   const exists = await db.databaseExists(settings, settings.database);
-  ok(res, { ...info, database: settings.database, databaseExists: exists });
+  ok(res, {
+    ...info,
+    database: settings.database,
+    databaseExists: exists,
+    authMode: db.resolveAuthMode(settings),
+  });
 }));
 
 setupRouter.post('/db/create', asHandler(async (req, res) => {
@@ -163,7 +179,7 @@ setupRouter.post('/complete', asHandler(async (req, res) => {
     });
     await db.setSetting(pool, 'setup_complete', 'true');
     await db.writeAudit(pool, {
-      actor: sqlSettings.username,
+      actor: sqlSettings.username || db.processIdentity().account,
       action: 'setup.complete',
       target: dirSettings.host,
       detail: `base DN ${dirSettings.baseDn}, LDAPS ${dirSettings.useLdaps ? 'on' : 'off'}`,

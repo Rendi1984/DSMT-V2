@@ -127,14 +127,15 @@
 
             <div class="field-row">
               <div class="field">
-                <label for="db-user">Username</label>
+                <label for="db-user">Username <span class="text-muted">(optional)</span></label>
                 <input class="input" id="db-user" type="text" placeholder="sa" autocomplete="off">
               </div>
               <div class="field">
-                <label for="db-pass">Password</label>
+                <label for="db-pass">Password <span class="text-muted">(optional)</span></label>
                 <input class="input" id="db-pass" type="password" autocomplete="off">
               </div>
             </div>
+            <div class="result" id="db-identity" data-kind="ok" role="status" hidden></div>
 
             <div class="field">
               <label for="db-name">Database name</label>

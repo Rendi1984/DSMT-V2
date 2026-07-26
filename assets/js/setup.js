@@ -158,6 +158,45 @@ function syncInstanceAndPort() {
 dbFields.instance.addEventListener('input', syncInstanceAndPort);
 syncInstanceAndPort();
 
+/* ── blank credentials mean "the account running DSMT" ───────────────
+   Rather than leaving that as a rule buried in the docs, show which account
+   that actually is the moment both boxes are empty. */
+
+let identity = null;
+
+function syncIdentityHint() {
+  const box = $('#db-identity');
+  const blank = dbFields.user.value.trim() === '' && dbFields.pass.value === '';
+
+  if (!blank || !identity) {
+    box.hidden = true;
+    return;
+  }
+
+  if (identity.platformSupportsIntegrated) {
+    showResult(box, {
+      kind: 'ok',
+      title: 'Will connect as the account running DSMT',
+      detail: identity.account
+        ? `Windows Integrated Authentication as ${identity.account}.`
+        : 'Windows Integrated Authentication.',
+      hint: 'That account needs a SQL Server login with the dbcreator role. Fill in a username and password to use a different account.',
+    });
+  } else {
+    // Being explicit beats letting them press Test and get a driver error.
+    showResult(box, {
+      kind: 'warn',
+      title: 'Integrated authentication needs Windows',
+      detail: `DSMT is running on ${identity.platform}, where SQL Server cannot use the process account.`,
+      hint: 'Enter a SQL Server username and password.',
+    });
+  }
+}
+
+for (const input of [dbFields.user, dbFields.pass]) {
+  input.addEventListener('input', syncIdentityHint);
+}
+
 /* ── domain drives the base DN ───────────────────────────────────────
    contoso.local → DC=contoso,DC=local. Only auto-filled while the admin
    hasn't written their own base DN, so narrowing it to a single OU sticks. */
@@ -224,8 +263,12 @@ const portCheck = (v, disabled) => {
 const dbChecks = () => [
   [dbFields.server, required('The server address')],
   [dbFields.port, (v) => portCheck(v, dbFields.port.disabled)],
-  [dbFields.user, required('The username')],
-  [dbFields.pass, required('The password')],
+  // Both blank is a valid choice — it means "use the account running DSMT".
+  // One of the two blank is almost always a typo, so that is still an error.
+  [dbFields.user, (v) => (!v && dbFields.pass.value
+    ? 'Enter a username, or clear the password to use the account running DSMT.' : '')],
+  [dbFields.pass, (v) => (!v && dbFields.user.value.trim()
+    ? 'Enter a password, or clear the username to use the account running DSMT.' : '')],
   [dbFields.name, (v) => {
     if (!v) return 'A database name is required.';
     // Matches the server's allowlist; catching it here saves a round trip
@@ -373,8 +416,13 @@ function renderReview() {
   row(dbList, db.instance ? 'Instance' : 'Port',
     db.instance || String(db.port || DEFAULT_SQL_PORT));
   row(dbList, 'Database', db.database);
-  row(dbList, 'Authentication', db.authMode === 'windows' ? 'Windows (NTLM)' : 'SQL Server');
-  row(dbList, 'Username', db.username);
+  if (db.username) {
+    row(dbList, 'Authentication', db.authMode === 'windows' ? 'Windows (NTLM)' : 'SQL Server');
+    row(dbList, 'Username', db.username);
+  } else {
+    row(dbList, 'Authentication', 'Windows Integrated');
+    row(dbList, 'Account', identity && identity.account ? identity.account : 'the account running DSMT');
+  }
   if (db.trustServerCert) row(dbList, 'Certificate', 'Trusted without validation');
 
   const dirList = $('#review-dir');
@@ -420,5 +468,10 @@ $('#finish').addEventListener('click', async (e) => {
    install is sent straight to the app instead of being offered the form. */
 
 api.get('/api/setup/status')
-  .then((status) => { if (status.complete) location.replace('users.html'); })
+  .then((status) => {
+    if (status.complete) return location.replace('users.html');
+    identity = status.identity || null;
+    syncIdentityHint();
+    return undefined;
+  })
   .catch(() => { /* the wizard is exactly what you need when status fails */ });

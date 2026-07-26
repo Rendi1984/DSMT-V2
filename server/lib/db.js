@@ -1,6 +1,8 @@
 /* SQL Server access. `buildSqlConfig` and `classifySqlError` are pure and
    unit-tested; everything below them needs a reachable SQL Server. */
 
+import os from 'node:os';
+
 import sql from 'mssql';
 
 export const SCHEMA_VERSION = 2;
@@ -64,11 +66,42 @@ export function resolveEndpoint(settings) {
   };
 }
 
+/* ── who are we connecting as ─────────────────────────────────────────
+   Leaving the username and password blank means "use the account DSMT is
+   already running as" — Windows Integrated Authentication. That is the
+   normal answer for a domain-joined server, and it avoids storing a second
+   set of credentials just to reach a database the service account can
+   already open. */
+export function resolveAuthMode(settings) {
+  const hasUser = String(settings.username || '').trim() !== '';
+  const hasPassword = String(settings.password || '') !== '';
+  if (!hasUser && !hasPassword) return 'integrated';
+  return settings.authMode === 'windows' ? 'ntlm' : 'sql';
+}
+
+/** The account DSMT itself runs as, for the wizard to show before connecting. */
+export function processIdentity() {
+  let username = '';
+  try {
+    username = os.userInfo().username;
+  } catch {
+    username = process.env.USERNAME || process.env.USER || '';
+  }
+  const domain = process.env.USERDOMAIN || '';
+  return {
+    account: domain ? `${domain}\\${username}` : username,
+    // Integrated auth is a Windows facility; say so rather than offering it
+    // on a platform where it cannot work.
+    platformSupportsIntegrated: process.platform === 'win32',
+    platform: process.platform,
+  };
+}
+
 /** Build an `mssql` config. `database` is chosen by the caller: setup
     connects to `master` first, then to the new database. */
 export function buildSqlConfig(settings, database) {
   const { server, instanceName, port } = resolveEndpoint(settings);
-  const useWindowsAuth = settings.authMode === 'windows';
+  const authMode = resolveAuthMode(settings);
 
   const config = {
     server,
@@ -88,7 +121,12 @@ export function buildSqlConfig(settings, database) {
   if (instanceName) config.options.instanceName = instanceName;
   else config.port = port;
 
-  if (useWindowsAuth) {
+  if (authMode === 'integrated') {
+    // Handled by the msnodesqlv8 driver, which passes Trusted_Connection to
+    // ODBC and so authenticates as the process's own Windows token. No
+    // credentials are set here — that is the whole point.
+    config.options.trustedConnection = true;
+  } else if (authMode === 'ntlm') {
     // NTLM: tedious wants the bare account plus the domain separately.
     const user = String(settings.username || '');
     const slash = user.indexOf('\\');
@@ -105,6 +143,7 @@ export function buildSqlConfig(settings, database) {
     config.password = settings.password || '';
   }
 
+  config.authMode = authMode;
   return config;
 }
 
@@ -212,10 +251,40 @@ export function assertSafeIdentifier(name) {
 
 /* ── connections ─────────────────────────────────────────────────────── */
 
+/* Integrated authentication needs the msnodesqlv8 driver: tedious, the
+   default, can do NTLM with explicit credentials but cannot present the
+   process's own Windows token. msnodesqlv8 is a native, Windows-only module,
+   so it is an optional dependency loaded only on this path — importing it
+   eagerly would break `npm install` everywhere else. */
+let integratedDriver;
+
+async function loadIntegratedDriver() {
+  if (integratedDriver) return integratedDriver;
+  try {
+    const mod = await import('mssql/msnodesqlv8.js');
+    integratedDriver = mod.default || mod;
+    return integratedDriver;
+  } catch (cause) {
+    throw Object.assign(new Error('Windows Integrated Authentication is unavailable'), {
+      code: 'sql_driver_missing',
+      message: 'Windows Integrated Authentication is unavailable',
+      detail: process.platform === 'win32'
+        ? 'The msnodesqlv8 driver is not installed.'
+        : `Integrated authentication is a Windows feature; this server runs ${process.platform}.`,
+      hint: process.platform === 'win32'
+        ? 'Run "npm install msnodesqlv8" in the DSMT folder, then restart DSMT. Or enter a username and password to use SQL Server Authentication instead.'
+        : 'Enter a SQL Server username and password instead.',
+      isSqlError: true,
+      cause,
+    });
+  }
+}
+
 export async function connect(settings, database) {
   const config = buildSqlConfig(settings, database);
+  const driver = config.authMode === 'integrated' ? await loadIntegratedDriver() : sql;
   try {
-    const pool = new sql.ConnectionPool(config);
+    const pool = new driver.ConnectionPool(config);
     await pool.connect();
     return pool;
   } catch (err) {

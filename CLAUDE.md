@@ -109,6 +109,29 @@ which port to open, which checkbox to tick).
 
 ---
 
+## Deployment guide (MANDATORY)
+`DEPLOYMENT.html` is what the person installing DSMT actually reads. **Update
+it in the same change that alters the thing it describes** — a wizard field, a
+default, an environment variable, an error message and its fix, or a
+prerequisite. A guide that lags the software is worse than no guide, because it
+gets trusted.
+
+It is deliberately self-contained — no external stylesheet, font or script — so
+it still renders when forwarded to a DBA or opened off a USB stick on a server
+with no internet. Keep it that way.
+
+Its version badge is stamped from `package.json` by `scripts/package.mjs` at
+package time. The repository copy holds an empty `<!--PKG_VERSION-->`
+placeholder, so an unstamped guide shows no version rather than a wrong one.
+Never type a version number into it.
+
+`npm run package` builds `dist/dsmt-<version>.zip` with the guide included
+(`--no-deps` for a smaller ZIP that needs `npm install` on site). The script
+excludes `server/data/` — that holds the encryption key and the stored SQL
+password, and shipping them would hand every recipient the keys.
+
+---
+
 ## How changes are delivered
 - Work happens on feature branches (e.g. `claude/web-site-new-experiment-g31uu1`)
   and is pushed to `origin`.

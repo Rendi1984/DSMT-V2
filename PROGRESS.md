@@ -15,6 +15,8 @@ controller.
 | LDAP connection | Built and verified against a live server |
 | LDAPS connection | Built and verified against a live TLS server |
 | Feature 1 — user list, detail, membership | Built; LDAP layer verified, page not yet driven end to end |
+| SQL Windows Integrated Auth | Built (blank credentials = the account running DSMT); needs Windows + `msnodesqlv8` to exercise |
+| Deployment guide + release ZIP | Built and verified by extracting and running the package |
 | Sign-in / authentication | **Not built** |
 
 ## What has actually been verified, and how
@@ -70,6 +72,12 @@ explicitly typed port (e.g. 3269). No horizontal overflow at 320px or 768px.
    - Paged results on a domain with more than 1000 users
 3. **Then drive `users.html` end to end** — it needs a completed setup, which
    needs step 1.
+4. **Try Windows Integrated Authentication for SQL Server.** Leaving the wizard's
+   username and password blank connects as the DSMT process account. The code
+   path selects the `msnodesqlv8` driver and sets `Trusted_Connection`, but it
+   has only been exercised on Linux, where it correctly refuses. On Windows,
+   confirm the driver installs and that the service account's SQL login has
+   `dbcreator`.
 
 ## Next up
 
@@ -85,6 +93,13 @@ explicitly typed port (e.g. 3269). No horizontal overflow at 320px or 768px.
 
 - **No fixtures, ever.** See the mandatory section in `CLAUDE.md`. If something
   is hard to test, improve the error path rather than adding sample data.
+- **Keep `DEPLOYMENT.html` in step with the code** — same change, not a
+  follow-up. It is self-contained on purpose; don't link it to `assets/`.
+- **LDAP cannot use the process's Windows identity.** `ldapts` implements only
+  the EXTERNAL, PLAIN, DIGEST-MD5 and SCRAM-SHA-1 SASL mechanisms — no
+  GSSAPI/Kerberos/SSPI — so the directory step needs an explicit bind account.
+  Integrated auth applies to SQL Server only. Changing this means a native
+  Kerberos dependency; check before starting.
 - `assets/css/nocturne.css` is vendored from the Claude Design handoff. Do not
   edit it; add to `app.css`.
 - The original handoff bundle also shipped a `support.js` / `image-slot.js`

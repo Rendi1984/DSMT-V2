@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DSMT — Deployment Guide</title>
+
+<!--
+  Deliberately self-contained: no external stylesheet, no webfont, no script.
+  This file gets forwarded to a DBA or opened off a USB stick on a server with
+  no internet, so it has to render correctly on its own. That is worth the
+  duplicated design tokens.
+
+  The version badge is filled in by scripts/package.mjs from package.json when
+  the release ZIP is built. It is empty in the repository on purpose — a
+  hardcoded version here would eventually go stale and contradict the app.
+-->
+
+<style>
+:root {
+  --bg: #161826;
+  --surface: #232532;
+  --text: #e9e9ed;
+  --accent: #9184d9;
+  --accent-300: #d2cefd;
+  --divider: color-mix(in srgb, #e9e9ed 16%, transparent);
+  --success: #6fc48f;
+  --warning: #e0b341;
+  --danger: #e0757a;
+  --font: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", "Consolas", monospace;
+  --radius: 8px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.wrap { max-width: 860px; margin: 0 auto; padding: 32px 20px 80px; }
+
+header.doc-head {
+  padding-bottom: 20px;
+  margin-bottom: 28px;
+  border-bottom: 1px solid var(--divider);
+}
+.doc-brand {
+  font-size: 42px; font-weight: 500; letter-spacing: -0.02em; line-height: 1;
+}
+.doc-sub { color: color-mix(in srgb, var(--text) 60%, transparent); font-size: 15px; margin-top: 6px; }
+.doc-version:not(:empty) {
+  display: inline-block; margin-top: 12px; padding: 3px 10px;
+  border: 1px solid var(--accent); border-radius: 6px;
+  color: var(--accent); font-size: 12px; font-family: var(--mono);
+}
+
+h2 {
+  font-size: 24px; font-weight: 500; letter-spacing: -0.01em;
+  margin: 44px 0 4px; padding-top: 18px;
+  border-top: 1px solid var(--divider);
+}
+h2:first-of-type { border-top: 0; padding-top: 0; }
+h3 { font-size: 17px; font-weight: 500; margin: 28px 0 8px; }
+h4 { font-size: 14px; font-weight: 600; margin: 20px 0 6px; }
+p { margin: 10px 0; }
+
+a { color: var(--accent-300); }
+code {
+  font-family: var(--mono); font-size: 0.88em;
+  background: var(--surface); padding: 1px 5px; border-radius: 4px;
+  overflow-wrap: anywhere;
+}
+pre {
+  background: var(--surface); border: 1px solid var(--divider);
+  border-radius: var(--radius); padding: 14px 16px;
+  overflow-x: auto; font-family: var(--mono); font-size: 13px; line-height: 1.55;
+}
+pre code { background: none; padding: 0; }
+
+/* Wide content scrolls inside its own box; the page never scrolls sideways. */
+.table-wrap { overflow-x: auto; margin: 14px 0; }
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+th, td {
+  text-align: left; padding: 9px 12px; vertical-align: top;
+  border-bottom: 1px solid var(--divider);
+}
+th {
+  font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase;
+  color: color-mix(in srgb, var(--text) 60%, transparent); font-weight: 600;
+  white-space: nowrap;
+}
+td code { white-space: nowrap; }
+
+ul, ol { margin: 10px 0; padding-left: 22px; }
+li { margin: 5px 0; }
+
+.note {
+  border-left: 3px solid var(--accent); background: var(--surface);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  padding: 12px 16px; margin: 16px 0;
+}
+.note--warn { border-left-color: var(--warning); }
+.note--danger { border-left-color: var(--danger); }
+.note--ok { border-left-color: var(--success); }
+.note__title { font-weight: 600; display: block; margin-bottom: 3px; }
+.note--warn .note__title { color: var(--warning); }
+.note--danger .note__title { color: var(--danger); }
+.note--ok .note__title { color: var(--success); }
+.note p:first-of-type { margin-top: 0; }
+.note p:last-child { margin-bottom: 0; }
+
+.check { list-style: none; padding-left: 0; }
+.check li { padding-left: 26px; position: relative; }
+.check li::before {
+  content: "☐"; position: absolute; left: 4px;
+  color: var(--accent); font-size: 15px;
+}
+
+.steps { counter-reset: s; list-style: none; padding-left: 0; }
+.steps > li {
+  counter-increment: s; position: relative;
+  padding-left: 40px; margin-bottom: 24px;
+}
+.steps > li::before {
+  content: counter(s);
+  position: absolute; left: 0; top: 1px;
+  width: 26px; height: 26px; display: grid; place-items: center;
+  border: 1.5px solid var(--accent); border-radius: 50%;
+  color: var(--accent); font-size: 13px;
+}
+
+.toc {
+  background: var(--surface); border: 1px solid var(--divider);
+  border-radius: var(--radius); padding: 16px 20px; margin-bottom: 8px;
+}
+.toc ol { margin: 0; padding-left: 20px; }
+.toc a { text-decoration: none; }
+.toc a:hover { text-decoration: underline; }
+
+footer.doc-foot {
+  margin-top: 56px; padding-top: 18px;
+  border-top: 1px solid var(--divider);
+  font-size: 12.5px; color: color-mix(in srgb, var(--text) 45%, transparent);
+}
+
+/* Printing: black on white, and don't waste ink on the dark ground. */
+@media print {
+  :root { --bg: #fff; --surface: #f4f4f7; --text: #16181f; --divider: #d5d5de; }
+  body { font-size: 11pt; }
+  .wrap { max-width: none; padding: 0; }
+  h2 { page-break-after: avoid; }
+  pre, table, .note { page-break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc-head">
+  <div class="doc-brand">DSMT</div>
+  <div class="doc-sub">Directory Service Management Tool — Deployment Guide</div>
+  <span class="doc-version"><!--PKG_VERSION--></span>
+</header>
+
+<div class="toc">
+  <strong>Contents</strong>
+  <ol>
+    <li><a href="#what">What you are deploying</a></li>
+    <li><a href="#prereq">Before you start</a></li>
+    <li><a href="#install">Install and run</a></li>
+    <li><a href="#wizard">The setup wizard, field by field</a></li>
+    <li><a href="#config">Configuration reference</a></li>
+    <li><a href="#files">Files DSMT creates</a></li>
+    <li><a href="#trouble">Troubleshooting</a></li>
+    <li><a href="#maintain">Re-running setup and upgrading</a></li>
+    <li><a href="#security">Security — read before exposing DSMT</a></li>
+    <li><a href="#tested">What has and has not been tested</a></li>
+  </ol>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<h2 id="what">1. What you are deploying</h2>
+
+<p>
+  DSMT is a web front end for looking up Active Directory users. You install it
+  through a browser-based wizard, and from then on it reads the directory live —
+  user data is never copied into a database.
+</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Component</th><th>What it is</th></tr></thead>
+  <tbody>
+    <tr><td>Web front end</td><td>Static HTML and JavaScript. No build step, no framework.</td></tr>
+    <tr><td>Server</td><td>A single Node.js process (<code>server/index.js</code>) running Express.</td></tr>
+    <tr><td>SQL Server</td><td>Holds configuration and the audit log <em>only</em>. No user data is mirrored.</td></tr>
+    <tr><td>Directory</td><td>Read over LDAP or LDAPS. DSMT only reads — it never writes to AD.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>What this release does</h3>
+<ul>
+  <li>Browser-based setup wizard: creates the SQL Server database and stores the directory connection.</li>
+  <li><strong>Feature 1 — user lookup:</strong> searchable user list read live from the domain controller, per-user detail, and group membership including nested groups.</li>
+</ul>
+
+<div class="note note--warn">
+  <span class="note__title">No sign-in yet</span>
+  <p>
+    This release has no authentication. Anyone who can reach the port can read
+    your directory. DSMT therefore listens on <code>127.0.0.1</code> only by
+    default. See <a href="#security">section 9</a> before changing that.
+  </p>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<h2 id="prereq">2. Before you start</h2>
+
+<p>Collect these before running the wizard — it will ask for all of them.</p>
+
+<h3>On the machine that will run DSMT</h3>
+<ul class="check">
+  <li><strong>Node.js 20 or later.</strong> Check with <code>node --version</code>.</li>
+  <li>Network access to your SQL Server and to a domain controller.</li>
+  <li>Roughly 100 MB of disk space.</li>
+</ul>
+
+<h3>SQL Server</h3>
+<ul class="check">
+  <li>Hostname or IP, and the <strong>port</strong> (usually <code>1433</code>) — or the <strong>instance name</strong> if it is a named instance.</li>
+  <li>
+    A login DSMT can use — or nothing at all: leave the username and password
+    blank in the wizard and DSMT connects as <strong>the Windows account it is
+    running as</strong> (Integrated Authentication). SQL Server Authentication
+    and explicit Windows Authentication (NTLM) also work.
+  </li>
+  <li>That login needs the <strong><code>dbcreator</code></strong> server role to create the database. Alternatively, create an empty database yourself and give the login write access to it.</li>
+  <li>TCP/IP enabled in SQL Server Configuration Manager.</li>
+  <li>For a named instance: the <strong>SQL Browser</strong> service running, and UDP 1434 open.</li>
+</ul>
+
+<h3>Active Directory</h3>
+<ul class="check">
+  <li>A domain controller hostname or IP.</li>
+  <li>Your <strong>domain name</strong>, for example <code>contoso.local</code>.</li>
+  <li>
+    A <strong>bind account</strong> and password. Any ordinary domain user is
+    normally enough — DSMT only reads. Unlike the database step, these are
+    required; see the note below.
+  </li>
+  <li>Port <strong>389</strong> open for LDAP, or <strong>636</strong> if you want LDAPS.</li>
+  <li>For LDAPS: certificates installed on your domain controllers.</li>
+</ul>
+
+<div class="note">
+  <span class="note__title">Use LDAPS if you can</span>
+  <p>
+    Plain LDAP sends the bind password over the network unencrypted. If your
+    domain controllers have certificates, tick <em>Use LDAPS</em> in the wizard.
+  </p>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<h2 id="install">3. Install and run</h2>
+
+<ol class="steps">
+  <li>
+    <h4>Unpack</h4>
+    <p>Extract the release ZIP to where DSMT will live, for example <code>C:\DSMT</code> or <code>/opt/dsmt</code>.</p>
+  </li>
+
+  <li>
+    <h4>Install dependencies</h4>
+    <p>
+      If the ZIP already contains a <code>node_modules</code> folder, skip this — the
+      dependencies are bundled and DSMT is ready to run offline. Otherwise, from
+      the DSMT folder:
+    </p>
+<pre><code>npm install --omit=dev</code></pre>
+  </li>
+
+  <li>
+    <h4>Start the server</h4>
+<pre><code>npm start</code></pre>
+    <p>You should see:</p>
+<pre><code>DSMT v0.1.0 listening on http://127.0.0.1:8080</code></pre>
+  </li>
+
+  <li>
+    <h4>Open the wizard</h4>
+    <p>
+      Browse to <code>http://127.0.0.1:8080</code> <strong>on the machine running
+      DSMT</strong>. You will land on the setup wizard. Work through
+      <a href="#wizard">section 4</a>.
+    </p>
+  </li>
+
+  <li>
+    <h4>Run it as a service (optional)</h4>
+    <p>
+      <code>npm start</code> stops when you close the terminal. To keep DSMT running,
+      register it as a Windows service with a tool such as
+      <a href="https://nssm.cc/">NSSM</a>, or as a <code>systemd</code> unit on Linux.
+      Point the service at <code>node server/index.js</code> with the DSMT folder
+      as its working directory.
+    </p>
+  </li>
+</ol>
+
+<h3>Verify the install (optional)</h3>
+<p>The unit tests need no database and no domain controller:</p>
+<pre><code>npm test</code></pre>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<h2 id="wizard">4. The setup wizard, field by field</h2>
+
+<p>
+  The wizard has four steps. You cannot move past a step until its
+  <em>Test connection</em> button has succeeded — and if you edit a field
+  afterwards, that pass is revoked and you must test again. This is deliberate:
+  the final Review screen can then never describe settings that were never
+  verified.
+</p>
+
+<h3>Step 2 — Database</h3>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Field</th><th>What to enter</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Server</strong></td>
+      <td>
+        The SQL Server hostname or IP — <code>sql01.contoso.local</code>.
+        You can also paste <code>sql01,1433</code> or <code>sql01\SQLEXPRESS</code>
+        straight from SSMS; DSMT splits it into the fields below when you leave
+        the box.
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Port</strong></td>
+      <td>Defaults to <code>1433</code>. Disabled when an instance name is set.</td>
+    </tr>
+    <tr>
+      <td><strong>Instance name</strong></td>
+      <td>
+        Only for named instances, e.g. <code>SQLEXPRESS</code>. Leave blank
+        otherwise. A named instance is resolved by the SQL Browser service, so it
+        cannot be combined with a port — DSMT disables the port box when you fill
+        this in.
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Authentication</strong></td>
+      <td><em>SQL Server Authentication</em> or <em>Windows Authentication (NTLM)</em>.</td>
+    </tr>
+    <tr>
+      <td><strong>Username / Password</strong></td>
+      <td>
+        <strong>Optional.</strong> Leave <em>both</em> blank and DSMT connects
+        as the Windows account it is running as — the wizard shows you which
+        account that is. Otherwise enter a SQL login, or
+        <code>DOMAIN\user</code> with <em>Windows Authentication (NTLM)</em>
+        selected. Filling in only one of the two is treated as a mistake and
+        rejected.
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Database name</strong></td>
+      <td>
+        The database DSMT creates and keeps its configuration in — <code>DSMT</code>
+        by default. Letters, digits and underscores only, starting with a letter.
+        If it already exists, DSMT adopts it and adds any missing tables;
+        nothing is ever dropped.
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Trust the server certificate</strong></td>
+      <td>Tick this if SQL Server uses a self-signed certificate.</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<p>
+  Press <strong>Test connection</strong> first. DSMT reports the SQL Server
+  version, which login it connected as, and whether that login can create a
+  database — so a missing <code>dbcreator</code> role shows up now rather than
+  at the next button. Then press <strong>Create database</strong>.
+</p>
+
+<h4>Connecting as the account DSMT runs as</h4>
+<p>
+  Leaving both credential boxes empty selects Windows Integrated
+  Authentication: no credentials are sent, and SQL Server authenticates the
+  DSMT process by its own Windows token. This is usually the cleanest option on
+  a domain-joined server — there is no second password to store or rotate.
+</p>
+<ul>
+  <li>Grant that account a SQL Server login with the <code>dbcreator</code> role.</li>
+  <li>
+    If you run DSMT as a Windows service, the relevant account is the
+    service's <em>Log On As</em> identity, not the person who installed it.
+  </li>
+  <li>
+    It requires the <code>msnodesqlv8</code> driver. Recent release packages
+    bundle it; if the wizard reports it is missing, run
+    <code>npm install msnodesqlv8</code> in the DSMT folder and restart.
+  </li>
+  <li><strong>Windows only.</strong> On Linux or macOS, enter a SQL login instead.</li>
+</ul>
+
+<div class="note note--warn">
+  <span class="note__title">The directory step still needs a bind account</span>
+  <p>
+    Integrated authentication applies to SQL Server only. DSMT's LDAP client
+    cannot present the process's Windows identity to a domain controller —
+    that would need Kerberos/SSPI, which it does not support — so the domain
+    step requires an explicit username and password.
+  </p>
+</div>
+
+<h3>Step 3 — Directory</h3>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Field</th><th>What to enter</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Domain controller</strong></td>
+      <td>Hostname or IP of a DC — <code>dc01.contoso.local</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>Port</strong></td>
+      <td>
+        <code>389</code> for LDAP, <code>636</code> for LDAPS. Ticking the LDAPS box
+        moves it for you. A port you typed yourself is preserved — useful for the
+        global catalog on <code>3268</code> / <code>3269</code>.
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Use LDAPS</strong></td>
+      <td>Encrypts the connection. Requires certificates on your domain controllers.</td>
+    </tr>
+    <tr>
+      <td><strong>Trust the server certificate</strong></td>
+      <td>
+        Only shown with LDAPS on. Tick it when the certificate comes from an
+        internal CA that this server does not trust — the common case.
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Domain name</strong></td>
+      <td>
+        Your AD domain, <code>contoso.local</code> — <em>not</em> the controller's
+        hostname. DSMT builds the base DN from it.
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Base DN</strong></td>
+      <td>
+        Filled in from the domain: <code>contoso.local</code> becomes
+        <code>DC=contoso,DC=local</code>. Edit it to search a single OU instead,
+        e.g. <code>OU=Staff,DC=contoso,DC=local</code> — once you type your own, DSMT
+        stops overwriting it.
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Username</strong></td>
+      <td>
+        The bind account, in any of three forms:
+        <code>CONTOSO\svc_dsmt</code>, <code>svc_dsmt@contoso.local</code>, or a full
+        DN such as <code>CN=svc_dsmt,OU=Service,DC=contoso,DC=local</code>. A bare
+        username is completed using the domain above. Non-AD LDAP servers usually
+        need the full DN.
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Password</strong></td>
+      <td>
+        Stored encrypted with AES-256-GCM and never sent back to the browser.
+      </td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<p>
+  <strong>Test connection</strong> reports which server it actually reached and how
+  many user accounts are visible under the base DN. If it says zero users, the
+  base DN is almost certainly pointing at a container that holds none.
+</p>
+
+<h3>Step 4 — Review and finish</h3>
+<p>
+  Check the summary, then press <strong>Finish setup</strong>. DSMT re-verifies both
+  connections, writes the configuration, and takes you to the user list.
+</p>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<h2 id="config">5. Configuration reference</h2>
+
+<p>All optional. Set them in the environment before starting DSMT.</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Variable</th><th>Default</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>DSMT_PORT</code></td>
+      <td><code>8080</code></td>
+      <td>The port DSMT listens on.</td>
+    </tr>
+    <tr>
+      <td><code>DSMT_HOST</code></td>
+      <td><code>127.0.0.1</code></td>
+      <td>
+        The interface to bind. Changing this exposes an unauthenticated tool —
+        read <a href="#security">section 9</a> first.
+      </td>
+    </tr>
+    <tr>
+      <td><code>DSMT_SECRET_KEY</code></td>
+      <td><em>generated</em></td>
+      <td>
+        Key material used to encrypt the stored bind password. If unset, DSMT
+        generates a key file on first run and reuses it. Set this explicitly if
+        you manage secrets centrally, or if DSMT runs on more than one host
+        against the same database.
+      </td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h4>Windows</h4>
+<pre><code>set DSMT_PORT=9000
+npm start</code></pre>
+
+<h4>Linux / macOS</h4>
+<pre><code>DSMT_PORT=9000 npm start</code></pre>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<h2 id="files">6. Files DSMT creates</h2>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Path</th><th>Contents</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>server/data/bootstrap.json</code></td>
+      <td>
+        How to reach SQL Server, with the password encrypted. Written only after
+        the database really holds the configuration, so an interrupted install
+        never leaves DSMT pointing at a database that was never provisioned.
+      </td>
+    </tr>
+    <tr>
+      <td><code>server/data/dsmt.key</code></td>
+      <td>
+        The generated encryption key, created with owner-only permissions.
+        Not used when <code>DSMT_SECRET_KEY</code> is set.
+      </td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<div class="note note--danger">
+  <span class="note__title">Both files are secrets</span>
+  <p>
+    Together they give up the bind account's password. Back them up somewhere
+    safe, restrict them to the service account, and keep them out of source
+    control. Losing <code>dsmt.key</code> means re-running the wizard to re-enter
+    the bind password; it does not lose any directory data.
+  </p>
+</div>
+
+<h3>In the database</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Table</th><th>Contents</th></tr></thead>
+  <tbody>
+    <tr><td><code>app_settings</code></td><td>Schema version and the setup-complete flag.</td></tr>
+    <tr><td><code>directory_config</code></td><td>The directory connection. The bind password is stored encrypted.</td></tr>
+    <tr><td><code>audit_log</code></td><td>A record of configuration changes.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<h2 id="trouble">7. Troubleshooting</h2>
+
+<p>
+  Every failure names its own cause and next step rather than saying
+  "connection failed". Find the message you saw below.
+</p>
+
+<h3>SQL Server</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Message</th><th>Cause and fix</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>SQL Server not found</td>
+      <td>The hostname did not resolve. Check the spelling, or use the IP address.</td>
+    </tr>
+    <tr>
+      <td>Named instance not found</td>
+      <td>The SQL Browser service must be running on the SQL Server, with UDP 1434 open.</td>
+    </tr>
+    <tr>
+      <td>Could not reach SQL Server</td>
+      <td>The instance is stopped, TCP/IP is disabled in SQL Server Configuration Manager, or the port is closed.</td>
+    </tr>
+    <tr>
+      <td>Connection timed out</td>
+      <td>Almost always a firewall between this server and SQL Server.</td>
+    </tr>
+    <tr>
+      <td>SQL Server rejected the login</td>
+      <td>Wrong credentials — or SQL Authentication is being used while the server is set to Windows-only. Enable mixed-mode authentication.</td>
+    </tr>
+    <tr>
+      <td>Cannot open that database</td>
+      <td>The login is valid but has no access to that database. Grant it, or pick another name.</td>
+    </tr>
+    <tr>
+      <td>The account lacks permission</td>
+      <td>Creating a database needs the <code>dbcreator</code> server role. Grant it, or create the database manually and re-test.</td>
+    </tr>
+    <tr>
+      <td>The SQL Server certificate was rejected</td>
+      <td>Self-signed certificate. Tick <em>Trust the server certificate</em>.</td>
+    </tr>
+    <tr>
+      <td>Windows Integrated Authentication is unavailable</td>
+      <td>
+        You left the credentials blank, but the <code>msnodesqlv8</code> driver is
+        not installed — or DSMT is not running on Windows. Run
+        <code>npm install msnodesqlv8</code> and restart, or enter a username and
+        password.
+      </td>
+    </tr>
+    <tr>
+      <td>Incomplete credentials</td>
+      <td>
+        Only one of username/password was filled in. Complete both, or clear
+        both to connect as the account running DSMT.
+      </td>
+    </tr>
+    <tr>
+      <td>Invalid database name</td>
+      <td>Use letters, digits and underscores, starting with a letter, up to 63 characters.</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Directory</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Message</th><th>Cause and fix</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Domain controller not found</td>
+      <td>The hostname did not resolve. Check the spelling, and that this server uses the domain's DNS.</td>
+    </tr>
+    <tr>
+      <td>Connection refused</td>
+      <td>Nothing is listening on that port. For LDAPS, port 636 must be open and a certificate installed on the DC.</td>
+    </tr>
+    <tr>
+      <td>Connection timed out</td>
+      <td>A firewall, when the hostname itself resolves.</td>
+    </tr>
+    <tr>
+      <td>The LDAPS certificate was rejected</td>
+      <td>An internal CA this server does not trust. Tick <em>Trust the server certificate</em>, or install the CA certificate on this machine.</td>
+    </tr>
+    <tr>
+      <td>The bind account was rejected</td>
+      <td>Wrong username or password. Try <code>DOMAIN\user</code> or <code>user@domain</code>. A locked or expired account fails identically.</td>
+    </tr>
+    <tr>
+      <td>The base DN was not found</td>
+      <td>The base DN does not exist in this directory. For <code>contoso.local</code> it is <code>DC=contoso,DC=local</code>.</td>
+    </tr>
+    <tr>
+      <td>The bind account lacks permission</td>
+      <td>It connected but cannot read that part of the directory. Check for a restrictive ACL on the OU.</td>
+    </tr>
+    <tr>
+      <td>Connected, but no users were found</td>
+      <td>The base DN points at a container holding no user accounts. Widen it to the domain root.</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Other</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Message</th><th>Cause and fix</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Setup has already been completed</td>
+      <td>The wizard closes itself once setup finishes. See <a href="#maintain">section 8</a> to re-run it.</td>
+    </tr>
+    <tr>
+      <td>DSMT is not configured yet</td>
+      <td>No directory connection is saved. Run the wizard.</td>
+    </tr>
+    <tr>
+      <td>Cannot reach the DSMT server</td>
+      <td>The Node process is not running, or the browser is pointed at the wrong port.</td>
+    </tr>
+    <tr>
+      <td>Too many attempts</td>
+      <td>More than 30 setup requests in a minute. Wait a minute.</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<h2 id="maintain">8. Re-running setup and upgrading</h2>
+
+<h3>Re-running the wizard</h3>
+<p>
+  Setup rewrites how DSMT connects to everything, so it refuses to run a second
+  time. To point DSMT at a different database or directory:
+</p>
+<ol>
+  <li>Stop DSMT.</li>
+  <li>Delete <code>server/data/bootstrap.json</code>.</li>
+  <li>Start DSMT and browse to it. The wizard runs again.</li>
+</ol>
+<p>
+  Keep <code>server/data/dsmt.key</code> unless you are also discarding the old
+  database — the stored bind password cannot be decrypted without it.
+</p>
+
+<h3>Upgrading</h3>
+<ol>
+  <li>Stop DSMT.</li>
+  <li>Back up <code>server/data/</code>.</li>
+  <li>Extract the new release over the old folder.</li>
+  <li>Run <code>npm install --omit=dev</code> if the ZIP has no bundled <code>node_modules</code>.</li>
+  <li>Start DSMT. Schema changes are applied automatically and never drop anything.</li>
+</ol>
+
+<h3>Which files need what after a change</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Changed</th><th>Action needed</th></tr></thead>
+  <tbody>
+    <tr><td><code>*.html</code>, <code>assets/**</code></td><td>Refresh the browser.</td></tr>
+    <tr><td><code>server/**</code></td><td>Restart the Node process.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<h2 id="security">9. Security — read before exposing DSMT</h2>
+
+<div class="note note--danger">
+  <span class="note__title">There is no sign-in in this release</span>
+  <p>
+    The sign-in page exists but is not connected to anything — its form does
+    nothing when submitted. There is no login endpoint, no session, and no check
+    on any page or API route.
+  </p>
+  <p>
+    Anyone who can reach DSMT's port can read every user in your directory,
+    using the bind account's permissions. Before setup completes they could also
+    point DSMT at a database and directory of their own choosing.
+  </p>
+  <p>
+    <strong>Keep <code>DSMT_HOST</code> on <code>127.0.0.1</code> until
+    authentication ships.</strong> DSMT prints a warning at startup if you bind
+    it anywhere else.
+  </p>
+</div>
+
+<h3>What is protected</h3>
+<ul>
+  <li>The bind password is encrypted at rest with AES-256-GCM, and never sent to the browser.</li>
+  <li>Everything typed into a search box is LDAP-filter-escaped, so directory queries cannot be rewritten by input.</li>
+  <li>The database name is checked against a strict allowlist and bracket-quoted, because <code>CREATE DATABASE</code> cannot use a parameter.</li>
+  <li>Setup requests are rate limited, and setup closes permanently once complete.</li>
+  <li>DSMT never writes to Active Directory. Read access is all the bind account needs.</li>
+</ul>
+
+<h3>Recommended</h3>
+<ul>
+  <li>
+    Run DSMT as a dedicated low-privilege service account — and prefer
+    Integrated Authentication for SQL Server, so no database password is stored
+    at all.
+  </li>
+  <li>Give the bind account read-only rights, and nothing more.</li>
+  <li>Use LDAPS so the bind password is not sent in the clear.</li>
+  <li>Restrict <code>server/data/</code> to the service account.</li>
+</ul>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<h2 id="tested">10. What has and has not been tested</h2>
+
+<p>Stated plainly so you know where to look first if something misbehaves.</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Area</th><th>Status</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Core logic — filter escaping, account-flag decoding, date conversion, DN parsing, connection building, encryption</td>
+      <td>Covered by unit tests (<code>npm test</code>).</td>
+    </tr>
+    <tr>
+      <td>LDAP and LDAPS — connect, list, search, user detail, group membership, certificate handling, error reporting</td>
+      <td>Verified against a live LDAP server, including a self-signed LDAPS certificate.</td>
+    </tr>
+    <tr>
+      <td><strong>SQL Server — database creation and schema</strong></td>
+      <td>
+        <strong>Not yet run against a real SQL Server.</strong> This is the most
+        likely place to hit a problem on first install. If the wizard's database
+        step fails in a way this guide does not explain, that is why.
+      </td>
+    </tr>
+    <tr>
+      <td>Nested group membership (the <em>Include nested groups</em> toggle)</td>
+      <td>
+        Uses an Active Directory-specific feature that the test server did not
+        support, so it is unverified. Check it early against your own domain.
+      </td>
+    </tr>
+    <tr>
+      <td>Domains with more than 1000 users</td>
+      <td>Paged searching is implemented but has not been exercised at that size.</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<footer class="doc-foot">
+  DSMT — Directory Service Management Tool. See <code>CHANGELOG.md</code> in this
+  package for what changed in this release.
+</footer>
+
+</div>
+</body>
+</html>
